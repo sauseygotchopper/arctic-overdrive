@@ -1,0 +1,31 @@
+{
+  "_doc": "Frostpine Valley. World coords in metres, map spans -512..512 on X and Z. Trails are groomed polylines (Catmull-Rom smoothed). Zones paint surfaces on top of the generated base.",
+  "size": 1024,
+  "seed": 1337,
+  "spawn": { "x": -300, "z": -250, "headingTo": [-100, -320] },
+  "trails": [
+    { "id": "loop", "width": 9, "points": [[-300,-250],[-100,-320],[150,-280],[320,-150],[350,80],[250,280],[50,330],[-180,300],[-330,150],[-360,-80],[-300,-250]] },
+    { "id": "cross", "width": 7, "points": [[-180,300],[-90,140],[-20,10],[40,-140],[150,-280]] },
+    { "id": "ridge", "width": 6, "points": [[350,80],[410,200],[380,330],[250,280]] },
+    { "id": "lakeway", "width": 7, "points": [[-360,-80],[-260,-20],[-140,-60],[-20,10]] }
+  ],
+  "lakes": [
+    { "x": 130, "z": 40, "r": 85 },
+    { "x": -230, "z": -70, "r": 60 },
+    { "x": -60, "z": 400, "r": 40 }
+  ],
+  "zones": [
+    { "surface": "moguls", "shape": "circle", "x": 240, "z": -210, "r": 30 },
+    { "surface": "moguls", "shape": "circle", "x": -340, "z": 60, "r": 22 },
+    { "surface": "slush", "shape": "circle", "x": 20, "z": 210, "r": 26 },
+    { "surface": "crust", "shape": "circle", "x": 420, "z": -300, "r": 70 },
+    { "surface": "powder", "shape": "circle", "x": -120, "z": 180, "r": 60 }
+  ],
+  "cabins": [
+    { "id": "pine-hollow", "x": -250, "z": 330, "rot": 0.4 },
+    { "id": "lakeside", "x": 245, "z": 110, "rot": -1.2 },
+    { "id": "ridge-hut", "x": 440, "z": 230, "rot": 2.2 },
+    { "id": "south-camp", "x": 60, "z": -360, "rot": 0.1 },
+    { "id": "old-mill", "x": -400, "z": -170, "rot": 1.4 }
+  ]
+}

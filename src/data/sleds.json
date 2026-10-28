@@ -1,0 +1,33 @@
+{
+  "_doc": "Base sled specs. Real-world reference classes noted per sled. Lengths in metres unless suffixed In (inches, as sled tracks are sold).",
+  "sleds": [
+    {
+      "id": "ravik-crossfire-850",
+      "brand": "Ravik",
+      "model": "Crossfire 850",
+      "tier": 2,
+      "class": "Crossover",
+      "reference": "~850cc 2-stroke crossover, 137in track",
+      "price": 14500,
+      "powerKW": 120,
+      "peakRpm": 7900,
+      "idleRpm": 1800,
+      "engageRpm": 4200,
+      "maxRpm": 8400,
+      "topSpeedKmh": 150,
+      "dryWeightKg": 245,
+      "trackLengthIn": 137,
+      "trackWidthIn": 15,
+      "lugHeightIn": 1.6,
+      "suspensionTravelFront": 0.24,
+      "suspensionTravelRear": 0.36,
+      "skiStance": 1.07,
+      "skiWidth": 0.16,
+      "handling": 0.75,
+      "durability": 0.7,
+      "dragArea": 0.85,
+      "colors": { "body": "#e8432e", "accent": "#16181d", "seat": "#22252b", "ski": "#16181d" }
+    }
+  ],
+  "rider": { "massKg": 82 }
+}
