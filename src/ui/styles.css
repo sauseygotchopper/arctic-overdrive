@@ -50,3 +50,38 @@ kbd { font-family: var(--font-ui); font-size: 0.8em; padding: 1px 6px; border-ra
   .hud-rpm { width: 160px; }
   .hud-help { display: none; }
 }
+
+/* Phase 2: tricks, weight, trailer, wallet */
+.hud-weight { font-family: var(--font-ui); font-size: 12px; opacity: .8; padding-left: 4px; }
+.hud-tr { position: absolute; top: 18px; right: 22px; }
+.hud-wallet { display: flex; gap: 10px; align-items: baseline; padding: 6px 12px; border-radius: 999px; background: rgba(11,22,38,.55); backdrop-filter: blur(6px); }
+.hud-wallet b { font-size: 22px; font-weight: 800; color: #fff; }
+.hud-wallet span { font-size: 14px; opacity: .75; letter-spacing: .06em; }
+.hud-combo { position: absolute; top: 9%; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity .2s; max-width: 80vw; }
+.hud-combo.show { opacity: 1; }
+.hud-combo .names { font-size: 20px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.hud-combo .pts { font-size: 40px; font-weight: 800; font-style: italic; color: var(--accent); font-variant-numeric: tabular-nums; }
+.hud-combo .pose { font-size: 16px; font-weight: 700; letter-spacing: .2em; opacity: .85; }
+.hud-banner { position: absolute; top: 30%; left: 50%; transform: translate(-50%, 8px) scale(.96); font-size: 44px; font-weight: 800; font-style: italic;
+  letter-spacing: .04em; text-transform: uppercase; opacity: 0; transition: opacity .2s, transform .2s cubic-bezier(.2,1.6,.4,1); white-space: nowrap; }
+.hud-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.hud-banner.good { color: #7cf3b0; }
+.hud-banner.warn { color: #ffd166; }
+.hud-banner.bad { color: #ff5a5a; }
+.hud-pop { width: 160px; height: 5px; margin: 0 0 8px auto; background: rgba(255,255,255,.15); border-radius: 3px; overflow: hidden; opacity: 0; transition: opacity .15s; }
+.hud-pop.show { opacity: 1; }
+.hud-pop span { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+.hud-trailer { position: absolute; left: 20px; bottom: 48px; min-width: 220px; padding: 10px 14px; border-radius: 10px; background: rgba(11,22,38,.55);
+  backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; }
+.hud-trailer.show { opacity: 1; }
+.hud-trailer .t-title { font-size: 15px; font-weight: 800; letter-spacing: .12em; }
+.hud-trailer .t-flags { color: var(--accent); margin-left: 6px; }
+.hud-trailer .t-line { font-family: var(--font-ui); font-size: 12px; opacity: .85; margin: 4px 0 6px; }
+.hud-trailer .t-bar { height: 5px; background: rgba(255,255,255,.15); border-radius: 3px; overflow: hidden; }
+.hud-trailer .t-bar span { display: block; height: 100%; background: #7cf3b0; transform-origin: left; transition: transform .3s; }
+.hud-trailer .t-bar span.low { background: #ff5a5a; }
+@media (max-width: 700px) {
+  .hud-banner { font-size: 28px; }
+  .hud-combo .pts { font-size: 28px; }
+  .hud-trailer { bottom: 14px; min-width: 0; }
+}

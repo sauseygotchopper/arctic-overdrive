@@ -70,6 +70,10 @@ export class PhysicsWorld {
     }
   }
 
+  addTrimesh(vertices: Float32Array, indices: Uint32Array) {
+    this.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices).setFriction(0.3));
+  }
+
   step() {
     this.world.step();
   }

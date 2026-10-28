@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "arctic-overdrive", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 }
+    { "name": "arctic-overdrive", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "/Users/sebwilson/arctic-overdrive", "run", "dev"], "port": 5173 }
   ]
 }

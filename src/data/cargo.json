@@ -1,0 +1,16 @@
+{
+  "_doc": "Cargo item types. size = [x, y, z] metres. fragile items take damage from hard landings and rough handling; value is what a full-health delivery pays (Phase 5).",
+  "types": {
+    "crate":   { "name": "Supply Crate",   "massKg": 28, "size": [0.55, 0.42, 0.55], "fragile": false, "color": "#8a6038", "value": 120 },
+    "fuel":    { "name": "Fuel Can",       "massKg": 21, "size": [0.36, 0.48, 0.2],  "fragile": false, "color": "#c62a1e", "value": 90 },
+    "medical": { "name": "Medical Supplies","massKg": 9, "size": [0.5, 0.32, 0.38],  "fragile": true,  "color": "#f2f4f6", "value": 260 },
+    "parcel":  { "name": "Parcel",         "massKg": 6,  "size": [0.4, 0.3, 0.32],   "fragile": true,  "color": "#c9a46c", "value": 80 },
+    "firewood":{ "name": "Firewood Bundle","massKg": 34, "size": [0.6, 0.35, 0.45],  "fragile": false, "color": "#6b4a2e", "value": 60 }
+  },
+  "testLoads": [
+    [],
+    ["crate", "crate"],
+    ["crate", "fuel", "fuel", "medical"],
+    ["crate", "crate", "firewood", "fuel", "fuel", "medical", "parcel", "parcel"]
+  ]
+}

@@ -1,10 +1,11 @@
 import { DriveInput } from '../vehicles/SledPhysics';
+import { TrickControls } from '../vehicles/Tricks';
 
 export type Action =
   | 'throttle' | 'brake' | 'steerLeft' | 'steerRight'
   | 'leanLeft' | 'leanRight' | 'leanForward' | 'leanBack'
   | 'jump' | 'trick1' | 'trick2' | 'trick3' | 'trick4'
-  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'photo';
+  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'photo' | 'hitch' | 'cargo';
 
 export const DEFAULT_KEYS: Record<Action, string[]> = {
   throttle: ['KeyW'],
@@ -25,12 +26,14 @@ export const DEFAULT_KEYS: Record<Action, string[]> = {
   pause: ['Escape', 'KeyP'],
   timeOfDay: ['KeyT'],
   photo: ['KeyF'],
+  hitch: ['KeyH'],
+  cargo: ['KeyG'],
 };
 
 // Standard Gamepad mapping button indices
 const PAD_BUTTONS: Partial<Record<Action, number[]>> = {
   jump: [0], trick1: [2], trick2: [3], trick3: [1], trick4: [5],
-  camera: [8], reset: [4], pause: [9], timeOfDay: [12], photo: [13],
+  camera: [8], reset: [4], pause: [9], timeOfDay: [12], photo: [13], hitch: [14], cargo: [15],
 };
 
 /** Keyboard + Gamepad input mapped to actions. Bindings are data so the settings screen can remap them. */
@@ -89,6 +92,14 @@ export class Input {
 
   private axis(neg: Action, pos: Action): number {
     return (this.held(pos) ? 1 : 0) - (this.held(neg) ? 1 : 0);
+  }
+
+  tricks(steer: number, leanX: number, leanZ: number): TrickControls {
+    return {
+      jumpHeld: this.held('jump'),
+      buttons: { trick1: this.held('trick1'), trick2: this.held('trick2'), trick3: this.held('trick3'), trick4: this.held('trick4') },
+      steer, leanX, leanZ,
+    };
   }
 
   drive(): DriveInput {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Sled } from '../vehicles/Sled';
 import { SURFACE_ID } from '../physics/Surfaces';
+import { Trailer } from '../vehicles/Trailer';
 
 const SPRAY_MAX = 2500;
 const FLAKES = 5000;
@@ -107,6 +108,24 @@ export class Effects {
           vel.z += (Math.random() - 0.5) * 2;
         }
         this.emit(tmp, vel, 0.6 + Math.random() * 0.9, 0.35 + Math.random() * 0.5 + c.surface.sinkDepth);
+      }
+    }
+  }
+
+  emitFromTrailer(t: Trailer, dt: number) {
+    const speed = Math.abs(t.velocity.dot(t.forward));
+    const tmp = new THREE.Vector3();
+    const vel = new THREE.Vector3();
+    for (const c of t.contacts) {
+      if (!c.grounded || c.surface.id === SURFACE_ID.ice) continue;
+      let n = speed * 0.35 * c.surface.spray * dt * (1 + c.sink * 4);
+      while (n > 0 && Math.random() < n) {
+        n -= 1;
+        tmp.copy(c.hitPoint);
+        tmp.y += 0.05;
+        vel.copy(t.velocity).multiplyScalar(0.3).addScaledVector(t.right, c.side * (0.5 + Math.random()));
+        vel.y += 0.8 + Math.random();
+        this.emit(tmp, vel, 0.5 + Math.random() * 0.6, 0.3 + Math.random() * 0.3 + c.sink);
       }
     }
   }

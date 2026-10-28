@@ -4,14 +4,19 @@ import { initRapier, PhysicsWorld, PHYSICS_DT } from '../physics/PhysicsWorld';
 import { TerrainData, WorldDef } from '../world/TerrainData';
 import { TerrainMesh } from '../world/TerrainMesh';
 import { Scenery } from '../world/Scenery';
+import { Jumps, JumpDef } from '../world/Jumps';
 import { SkySystem, TimeOfDay } from '../world/Sky';
 import { Effects } from '../world/Effects';
 import { Sled } from '../vehicles/Sled';
 import { getSled, RIDER_MASS } from '../vehicles/SledSpec';
+import { DriveInput } from '../vehicles/SledPhysics';
+import { Trailer, TrailerUpgrades } from '../vehicles/Trailer';
+import { LooseCargo, TEST_LOADS } from '../vehicles/Cargo';
 import { Input } from './Input';
 import { CameraRig } from './CameraRig';
 import { SaveSystem } from './SaveSystem';
 import { HUD } from '../ui/HUD';
+import { DevTools } from './DevTools';
 
 const MAX_STEPS = 5;
 
@@ -29,6 +34,11 @@ export class Game {
   rig!: CameraRig;
   hud!: HUD;
   player!: Sled;
+  jumps!: Jumps;
+  loose!: LooseCargo;
+  readonly dev = new DevTools(this);
+  private scenery!: Scenery;
+  private loadIndex = 1;
   private acc = 0;
   private last = 0;
   private paused = false;
@@ -57,24 +67,27 @@ export class Game {
     await step('Shaping the valley…', 0.15);
     this.terrain = new TerrainData(worldDef as unknown as WorldDef);
     await step('Laying down snow…', 0.45);
-    const tmesh = new TerrainMesh(this.terrain, q);
-    this.scene.add(tmesh.group);
+    this.scene.add(new TerrainMesh(this.terrain, q).group);
     this.physics.addTerrain(this.terrain);
     const err = this.physics.verifyTerrain(this.terrain);
     if (err > 0.5) console.warn(`[terrain] physics/visual height mismatch ${err.toFixed(2)} m`);
 
     await step('Planting the pine forest…', 0.7);
-    const scenery = new Scenery(this.terrain);
-    this.scene.add(scenery.group);
-    this.physics.addStatic(scenery.colliders);
+    this.scenery = new Scenery(this.terrain);
+    this.scene.add(this.scenery.group);
+    this.physics.addStatic(this.scenery.colliders);
+    this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
+    this.scene.add(this.jumps.group);
+    for (const c of this.jumps.colliders) this.physics.addTrimesh(c.vertices, c.indices);
 
     await step('Fuelling up…', 0.9);
     this.sky = new SkySystem(this.scene, this.renderer, q === 'high' ? 2048 : q === 'medium' ? 1024 : 0);
     this.sky.apply((this.save.data.settings.timeOfDay as TimeOfDay) || 'morning');
-    this.sceneryRef = scenery;
     this.effects = new Effects(this.scene);
     this.rig = new CameraRig(this.camera, this.terrain);
     this.hud = new HUD(this.container);
+    this.hud.setWallet(this.save.data.currency, this.save.data.xp);
+    this.loose = new LooseCargo(this.physics, this.scene);
 
     const sp = this.terrain.def.spawn;
     const yaw = Math.atan2(sp.headingTo[0] - sp.x, sp.headingTo[1] - sp.z);
@@ -84,29 +97,108 @@ export class Game {
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
-    (window as unknown as { __game: Game }).__game = this;
+    Object.assign(window, { __game: this, __dev: this.dev });
     await step('Ready', 1);
   }
-
-  private sceneryRef!: Scenery;
 
   private applyLighting() {
     const night = this.sky.headlights;
     this.player.visual.setHeadlights(night || this.sky.current === 'overcast');
-    this.sceneryRef.windowMaterial.emissiveIntensity = night ? 2.5 : this.sky.current === 'golden' ? 0.6 : 0;
+    this.scenery.windowMaterial.emissiveIntensity = night ? 2.5 : this.sky.current === 'golden' ? 0.6 : 0;
     this.effects.snowIntensity = this.sky.current === 'overcast' ? 1 : this.sky.current === 'night' ? 0.5 : 0.25;
   }
 
+  // ---------- trailer ----------
+
+  toggleTrailer() {
+    const p = this.player;
+    if (p.trailer) {
+      const t = p.trailer;
+      p.detachTrailer();
+      t.dispose(this.scene);
+      this.hud.toast('Trailer unhitched');
+      return;
+    }
+    const t = new Trailer(this.physics, this.terrain, this.loose, { ...this.save.data.trailer.upgrades }, p.physics.position.clone(), 0);
+    this.scene.add(t.root);
+    t.setCargo(TEST_LOADS[this.loadIndex]);
+    p.attachTrailer(t);
+    this.hud.toast('Trailer hitched — tricks disabled');
+  }
+
+  cycleLoad() {
+    const t = this.player.trailer;
+    if (!t) { this.hud.toast('Hitch the trailer first (H)'); return; }
+    this.loadIndex = (this.loadIndex + 1) % TEST_LOADS.length;
+    t.setCargo(TEST_LOADS[this.loadIndex]);
+    this.hud.toast(`Load: ${t.cargo.length} items · ${Math.round(t.payloadMass)} kg`);
+  }
+
+  /** Dev/console hook until the garage exists (Phase 4). */
+  setTrailerUpgrade(slot: keyof TrailerUpgrades, id: string) {
+    this.save.data.trailer.upgrades[slot] = id;
+    this.save.save();
+    const t = this.player.trailer;
+    if (t) { t.upgrades[slot] = id; t.applyUpgrades(); }
+  }
+
+  // ---------- loop ----------
+
   /** Deterministic fixed-step simulation for testing/tuning from the console. */
-  simulate(seconds: number, drive: Partial<import('../vehicles/SledPhysics').DriveInput>) {
+  simulate(seconds: number, drive: Partial<DriveInput>, buttons: Partial<Record<'jump' | 'trick1' | 'trick2' | 'trick3' | 'trick4', boolean>> = {}) {
     const d = { throttle: 0, brake: 0, steer: 0, leanX: 0, leanZ: 0, ...drive };
+    const tc = {
+      jumpHeld: !!buttons.jump,
+      buttons: { trick1: !!buttons.trick1, trick2: !!buttons.trick2, trick3: !!buttons.trick3, trick4: !!buttons.trick4 },
+      steer: d.steer, leanX: d.leanX, leanZ: d.leanZ,
+    };
     const n = Math.round(seconds / PHYSICS_DT);
     for (let i = 0; i < n; i++) {
-      this.player.fixedUpdate(PHYSICS_DT, d);
+      this.player.fixedUpdate(PHYSICS_DT, d, tc);
       this.physics.step();
     }
     this.player.physics.readState();
+    this.processEvents();
     return this.player.physics;
+  }
+
+  private processEvents() {
+    const st = this.player.stunts;
+    const t = this.player.trailer;
+    for (const e of st.events) if (e.type !== 'trick' && !(e.type === 'landed' && e.quality === 'clean')) this.dev.log.push(`${e.type}${'quality' in e ? ':' + e.quality : ''}${'points' in e ? ':' + e.points : ''}`);
+    if (t) for (const e of t.events) if (e.type !== 'bottomOut') this.dev.log.push(`trailer:${e.type}${'spilled' in e ? ':' + e.spilled : ''}@${Math.round(this.player.physics.speed * 3.6)}kmh`);
+    for (const e of st.events.splice(0)) {
+      switch (e.type) {
+        case 'landed':
+          if (e.quality === 'crash') this.hud.banner('Crash!', 'bad');
+          else if (e.quality === 'sketchy') this.hud.banner('Sketchy landing', 'warn', 1.2);
+          if (e.impact > 3) this.effects.burst(this.player.physics.position, e.impact);
+          break;
+        case 'lost':
+          this.hud.toast(`Combo lost −${e.points.toLocaleString('en-US')}`);
+          break;
+        case 'banked':
+          this.save.data.currency += e.currency;
+          this.save.data.xp += e.xp;
+          this.save.save();
+          this.hud.setWallet(this.save.data.currency, this.save.data.xp);
+          this.hud.banner(`+${e.points.toLocaleString('en-US')}${e.multiplier > 1 ? `  (×${e.multiplier})` : ''}`, 'good', 2.2);
+          this.hud.toast(`+$${e.currency} · +${e.xp} XP`, 2.2);
+          break;
+        case 'blocked':
+          this.hud.toast(e.reason);
+          break;
+      }
+    }
+    if (!t) return;
+    for (const e of t.events.splice(0)) {
+      switch (e.type) {
+        case 'jackknife': this.hud.banner('Jackknife!', 'bad'); break;
+        case 'flipped': this.hud.banner(e.spilled ? `Trailer flipped — ${e.spilled} spilled` : 'Trailer flipped', 'bad', 2.2); break;
+        case 'hardLanding': if (e.spilled || e.damaged) this.hud.banner(e.spilled ? `Hard landing — ${e.spilled} spilled` : 'Hard landing — cargo damaged', 'warn'); break;
+        case 'bottomOut': break;
+      }
+    }
   }
 
   private resize() {
@@ -141,26 +233,29 @@ export class Game {
       this.hud.toast(`Time of day: ${t}`);
     }
     if (input.consumePressed('reset')) this.player.recover();
+    if (input.consumePressed('hitch')) this.toggleTrailer();
+    if (input.consumePressed('cargo')) this.cycleLoad();
 
     if (!this.paused) {
       this.acc += dt;
       let steps = 0;
       const drive = input.drive();
+      const tricks = input.tricks(drive.steer, drive.leanX, drive.leanZ);
       while (this.acc >= PHYSICS_DT && steps < MAX_STEPS) {
-        this.player.fixedUpdate(PHYSICS_DT, drive);
+        this.player.fixedUpdate(PHYSICS_DT, drive, tricks);
         this.physics.step();
         this.acc -= PHYSICS_DT;
         steps++;
       }
       if (steps === MAX_STEPS) this.acc = 0;
-      const p = this.player.physics;
-      if (p.landingImpact > 3) {
-        this.effects.burst(p.position, p.landingImpact);
-        p.landingImpact = 0;
-      }
+      this.processEvents();
+      // auto-recover when left upside down
+      if (this.player.flippedTime > 4) this.player.recover();
       this.effects.emitFromSled(this.player, dt);
+      if (this.player.trailer) this.effects.emitFromTrailer(this.player.trailer, dt);
     }
     this.player.render(this.paused ? 1 : this.acc / PHYSICS_DT, this.paused ? 0 : dt);
+    this.loose.sync();
     this.rig.update(this.player, dt);
     this.effects.update(this.paused ? 0 : dt, this.camera.position);
     this.sky.follow(this.player.visual.root.position);

@@ -1,0 +1,22 @@
+{
+  "_doc": "Trick scoring. Rotations are detected from real body rotation; pose tricks hold a trick button (optionally with a steer direction). Points accrue while a pose is held past minHold. Rider must be back in the seat (pose fully released) on touchdown or it's a crash.",
+  "rotations": {
+    "backflip":  { "name": "Backflip",  "points": 1500 },
+    "frontflip": { "name": "Front Flip", "points": 2000 },
+    "spin":      { "name": "360",       "points": 900 }
+  },
+  "poses": {
+    "superman":    { "name": "Superman",     "button": "trick1", "dir": 0,  "points": 500, "perSecond": 600, "minHold": 0.25, "blendIn": 0.28 },
+    "canCan":      { "name": "Can-Can",      "button": "trick1", "dir": 1,  "points": 350, "perSecond": 400, "minHold": 0.2,  "blendIn": 0.22 },
+    "heelClicker": { "name": "Heel Clicker", "button": "trick2", "dir": 0,  "points": 450, "perSecond": 500, "minHold": 0.2,  "blendIn": 0.25 },
+    "nacNac":      { "name": "Nac-Nac",      "button": "trick2", "dir": 1,  "points": 400, "perSecond": 450, "minHold": 0.2,  "blendIn": 0.25 },
+    "seatGrab":    { "name": "Seat Grab",    "button": "trick3", "dir": 0,  "points": 250, "perSecond": 300, "minHold": 0.15, "blendIn": 0.18 },
+    "cliffhanger": { "name": "Cliffhanger",  "button": "trick4", "dir": 0,  "points": 700, "perSecond": 800, "minHold": 0.3,  "blendIn": 0.32 }
+  },
+  "airtime": { "minSeconds": 0.6, "pointsPerSecond": 120, "bigAir": 2.0, "bigAirBonus": 400 },
+  "combo": { "window": 2.0, "repeatPenalty": 0.5 },
+  "landing": { "cleanAlign": 0.86, "sketchyAlign": 0.62, "maxImpactBase": 11, "impactPerTravel": 18 },
+  "air": { "pitchTorque": 1150, "yawTorque": 1400, "rollTorque": 380, "gyroThrottle": 0.35, "towingScale": 0.25, "flightAlign": 900, "spinCheck": 200 },
+  "pop": { "impulse": 1050, "chargeTime": 0.45 },
+  "rewards": { "currencyPerPoint": 0.05, "xpPerPoint": 0.1 }
+}

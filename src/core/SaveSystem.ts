@@ -9,6 +9,7 @@ export interface SaveData {
   bestTimes: Record<string, number>;
   settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; camera: string };
   tutorialDone: boolean;
+  trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string } };
 }
 
 const KEY = 'arctic-overdrive-save';
@@ -23,6 +24,7 @@ export const DEFAULT_SAVE: SaveData = {
   bestTimes: {},
   settings: { quality: 'high', timeOfDay: 'morning', camera: 'chase' },
   tutorialDone: false,
+  trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' } },
 };
 
 export class SaveSystem {
@@ -37,7 +39,11 @@ export class SaveSystem {
       const raw = localStorage.getItem(KEY);
       if (!raw) return structuredClone(DEFAULT_SAVE);
       const parsed = JSON.parse(raw);
-      return { ...structuredClone(DEFAULT_SAVE), ...parsed, settings: { ...DEFAULT_SAVE.settings, ...parsed.settings } };
+      return {
+        ...structuredClone(DEFAULT_SAVE), ...parsed,
+        settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
+        trailer: { ...DEFAULT_SAVE.trailer, ...parsed.trailer, upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades } },
+      };
     } catch {
       return structuredClone(DEFAULT_SAVE);
     }

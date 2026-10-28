@@ -51,8 +51,9 @@ export class CameraRig {
     this.heading.lerp(flatFwd, this.initialised ? 1 - Math.exp(-dt * headingRate) : 1).normalize();
 
     const far = this.mode === 'far';
-    const dist = (far ? 9.5 : 6.0) + Math.min(speed, 40) * 0.035;
-    const height = far ? 3.6 : 2.3;
+    const towing = sled.trailer ? 1 : 0;
+    const dist = (far ? 9.5 : 6.0) + Math.min(speed, 40) * 0.035 + towing * 3.5;
+    const height = (far ? 3.6 : 2.3) + towing * 1.0;
     const center = root.position.clone().add(new THREE.Vector3(0, 0.9, 0));
     const desired = center.clone().addScaledVector(this.heading, -dist);
     desired.y += height;

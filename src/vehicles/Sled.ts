@@ -4,30 +4,55 @@ import { TerrainData } from '../world/TerrainData';
 import { SledPhysics, DriveInput } from './SledPhysics';
 import { SledModel, SledVisual } from './SledModel';
 import { SledSetup, deriveParams } from './SledSpec';
+import { StuntSystem, TrickControls } from './Tricks';
+import { Trailer } from './Trailer';
+import tricksData from '../data/tricks.json';
 
-/** A sled in the world: physics body + visual, with render interpolation between physics steps. */
+/** A sled in the world: physics body + visual + stunts, optional trailer, with render interpolation. */
 export class Sled {
   readonly physics: SledPhysics;
   readonly visual: SledVisual;
+  readonly stunts: StuntSystem;
+  trailer: Trailer | null = null;
   private prevPos = new THREE.Vector3();
   private prevQuat = new THREE.Quaternion();
-  private lastInput: DriveInput = { throttle: 0, brake: 0, steer: 0, leanX: 0, leanZ: 0 };
   flippedTime = 0;
 
   constructor(phys: PhysicsWorld, terrain: TerrainData, public setup: SledSetup, pos: THREE.Vector3, yaw: number) {
     const params = deriveParams(setup);
     this.physics = new SledPhysics(phys, terrain, params, pos, yaw);
     this.visual = new SledModel(setup.spec, params);
+    this.stunts = new StuntSystem(this.physics);
     this.physics.readState();
     this.snapshot();
   }
 
+  /** Total moving mass including anything towed. */
+  get totalMass(): number {
+    return this.physics.params.mass + (this.trailer?.mass ?? 0);
+  }
+
   /** Call right before each physics step. */
-  fixedUpdate(dt: number, input: DriveInput) {
+  fixedUpdate(dt: number, input: DriveInput, tricks?: TrickControls) {
     this.snapshot();
-    this.lastInput = input;
+    const towing = !!this.trailer?.sled;
+    this.stunts.towing = towing;
+    this.physics.airControlScale = towing ? tricksData.air.towingScale : 1;
     this.physics.step(dt, input);
+    this.stunts.fixedUpdate(dt, tricks ?? { jumpHeld: false, buttons: { trick1: false, trick2: false, trick3: false, trick4: false }, steer: input.steer, leanX: input.leanX, leanZ: input.leanZ });
+    this.trailer?.fixedUpdate(dt);
     this.flippedTime = this.physics.isFlipped() ? this.flippedTime + dt : 0;
+  }
+
+  attachTrailer(t: Trailer) {
+    this.trailer = t;
+    t.placeBehind(this.physics);
+    t.attach(this.physics);
+  }
+
+  detachTrailer() {
+    this.trailer?.detach();
+    this.trailer = null;
   }
 
   /** Re-apply derived params after setup changes (cargo, parts...). */
@@ -48,18 +73,29 @@ export class Sled {
     root.position.lerpVectors(this.prevPos, p.position, alpha);
     root.quaternion.slerpQuaternions(this.prevQuat, p.quaternion, alpha);
     const c = p.contacts;
-    // visual snow contact sits a bit lower than the ray when sinking, so skis sink into powder
-    const len = (i: number) => c[i].maxLen - c[i].compression + 0.0;
+    const len = (i: number) => c[i].maxLen - c[i].compression;
     this.visual.setSuspension(len(0), len(1), (len(2) + len(3)) / 2, (len(4) + len(5)) / 2);
     this.visual.setSteer(p.steerAngle);
     this.visual.setTrackSpeed(p.trackSpeed, dt);
-    this.visual.setLean(this.lastInput.leanX, this.lastInput.leanZ);
+    this.visual.setRider(this.stunts.rider, dt);
+    this.trailer?.render(alpha);
+  }
+
+  /** Move the sled (and anything hitched to it) – never teleport physics.body directly while towing. */
+  teleport(pos: THREE.Vector3, yaw: number) {
+    const t = this.trailer;
+    t?.detach();
+    this.physics.teleport(pos, yaw);
+    this.stunts.reset();
+    this.snapshot();
+    if (t) {
+      t.placeBehind(this.physics);
+      t.attach(this.physics);
+    }
   }
 
   recover() {
     const p = this.physics;
-    const yaw = Math.atan2(p.forward.x, p.forward.z);
-    p.teleport(p.position.clone().add(new THREE.Vector3(0, 1.5, 0)), yaw);
-    this.snapshot();
+    this.teleport(p.position.clone().add(new THREE.Vector3(0, 1.5, 0)), Math.atan2(p.forward.x, p.forward.z));
   }
 }
