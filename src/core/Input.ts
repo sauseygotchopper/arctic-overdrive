@@ -5,7 +5,7 @@ export type Action =
   | 'throttle' | 'brake' | 'steerLeft' | 'steerRight'
   | 'leanLeft' | 'leanRight' | 'leanForward' | 'leanBack'
   | 'jump' | 'trick1' | 'trick2' | 'trick3' | 'trick4'
-  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'photo' | 'hitch' | 'cargo';
+  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'photo' | 'hitch' | 'cargo' | 'weather' | 'replay';
 
 export const DEFAULT_KEYS: Record<Action, string[]> = {
   throttle: ['KeyW'],
@@ -28,12 +28,14 @@ export const DEFAULT_KEYS: Record<Action, string[]> = {
   photo: ['KeyF'],
   hitch: ['KeyH'],
   cargo: ['KeyG'],
+  weather: ['KeyY'],
+  replay: ['KeyV'],
 };
 
 // Standard Gamepad mapping button indices
 const PAD_BUTTONS: Partial<Record<Action, number[]>> = {
   jump: [0], trick1: [2], trick2: [3], trick3: [1], trick4: [5],
-  camera: [8], reset: [4], pause: [9], timeOfDay: [12], photo: [13], hitch: [14], cargo: [15],
+  camera: [8], reset: [4], pause: [9], timeOfDay: [12], photo: [13], hitch: [14], cargo: [15], replay: [10], weather: [11],
 };
 
 /** Keyboard + Gamepad input mapped to actions. Bindings are data so the settings screen can remap them. */
@@ -82,6 +84,10 @@ export class Input {
 
   endFrame() {
     this.pressedThisFrame.clear();
+  }
+
+  isKeyDown(code: string): boolean {
+    return this.down.has(code);
   }
 
   held(a: Action): boolean {

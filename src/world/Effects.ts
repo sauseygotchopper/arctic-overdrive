@@ -38,8 +38,10 @@ export class Effects {
   private next = 0;
   private flakes: THREE.Points;
   private flakeVel = new Float32Array(FLAKES);
+  private flakeMat: THREE.PointsMaterial;
   sprayColor: THREE.Color;
   snowIntensity = 0.6;
+  wind = 0.5;
 
   constructor(scene: THREE.Scene) {
     const g = new THREE.BufferGeometry();
@@ -66,6 +68,7 @@ export class Effects {
     const fg = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.BufferAttribute(fp, 3).setUsage(THREE.DynamicDrawUsage));
     this.flakes = new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false }));
+    this.flakeMat = this.flakes.material as THREE.PointsMaterial;
     this.flakes.frustumCulled = false;
     scene.add(this.flakes);
   }
@@ -159,6 +162,7 @@ export class Effects {
 
     // falling snow wraps around the camera
     this.flakes.visible = this.snowIntensity > 0;
+    this.flakeMat.size = 0.08 + this.wind * 0.006; // streakier flakes in a blizzard
     const fp = this.flakes.geometry.attributes.position as THREE.BufferAttribute;
     const arr = fp.array as Float32Array;
     const count = Math.floor(FLAKES * this.snowIntensity);
@@ -167,7 +171,8 @@ export class Effects {
     for (let i = 0; i < count; i++) {
       const o = i * 3;
       arr[o + 1] -= this.flakeVel[i] * dt;
-      arr[o] += Math.sin(t + i) * 0.3 * dt;
+      arr[o] += (Math.sin(t + i) * 0.3 + this.wind) * dt;
+      arr[o + 2] += this.wind * 0.35 * dt;
       const dx = arr[o] - camPos.x, dy = arr[o + 1] - camPos.y, dz = arr[o + 2] - camPos.z;
       if (dx > 40) arr[o] -= 80; else if (dx < -40) arr[o] += 80;
       if (dz > 40) arr[o + 2] -= 80; else if (dz < -40) arr[o + 2] += 80;

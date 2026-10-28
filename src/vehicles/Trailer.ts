@@ -289,7 +289,8 @@ export class Trailer {
       c.compression = comp;
       c.grounded = true;
       grounded++;
-      const compVel = (comp - c.prevCompression) / dt;
+      const va = body.velocityAtPoint(origin);
+      const compVel = -(va.x * this.up.x + va.y * this.up.y + va.z * this.up.z);
       let F = this.k * comp + this.c * compVel * (compVel < 0 ? H.suspension.reboundMult : 1);
       if (comp > this.travel) {
         F += this.k * 12 * (comp - this.travel);

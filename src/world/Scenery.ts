@@ -17,13 +17,26 @@ export class Scenery {
   /** Warm cabin windows – Sky toggles their glow at night. */
   readonly windowMaterial = new THREE.MeshStandardMaterial({ color: 0x334455, emissive: 0xffa040, emissiveIntensity: 0 });
   treeCount = 0;
+  /** x,z pairs of every pine (minimap). */
+  readonly treePositions: number[] = [];
 
-  constructor(private data: TerrainData) {
+  constructor(private data: TerrainData, private clearings: { ax: number; az: number; bx: number; bz: number; width: number }[] = []) {
     const rand = mulberry32(data.def.seed * 7 + 3);
     this.placeTrees(rand);
     this.placeRocks(rand);
     this.placeCabins();
     this.placeFencesAndMarkers(rand);
+  }
+
+  /** Off-trail course corridors are kept free of trees and rocks. */
+  private inClearing(x: number, z: number, pad: number): boolean {
+    for (const c of this.clearings) {
+      const vx = c.bx - c.ax, vz = c.bz - c.az;
+      const len2 = vx * vx + vz * vz || 1;
+      const t = Math.max(0, Math.min(1, ((x - c.ax) * vx + (z - c.az) * vz) / len2));
+      if (Math.hypot(x - (c.ax + vx * t), z - (c.az + vz * t)) < c.width / 2 + pad) return true;
+    }
+    return false;
   }
 
   private chunkOf(x: number, z: number) {
@@ -110,6 +123,7 @@ export class Scenery {
         const density = smoothstep(0.0, 0.35, forest);
         if (rand() > density * 0.9 + 0.015) continue;
         if (d.trailDistanceAt(px, pz) < 3.5) continue;
+        if (this.inClearing(px, pz, 3)) continue;
         if (d.lakeDistance(px, pz).d < 1.12) continue;
         if (d.def.cabins.some((c) => Math.hypot(px - c.x, pz - c.z) < 20)) continue;
         if (Math.hypot(px - spawn.x, pz - spawn.z) < 25) continue;
@@ -123,6 +137,7 @@ export class Scenery {
         m.compose(p, q, s);
         const tint = 0.85 + rand() * 0.25;
         items.push({ m: m.clone(), c: new THREE.Color(tint, tint, tint), x: px, z: pz });
+        this.treePositions.push(px, pz);
         this.colliders.push({ kind: 'cylinder', x: px, y: h + 2, z: pz, r: 0.35 * sc + 0.1, halfH: 2.5 });
       }
     }
@@ -167,6 +182,7 @@ export class Scenery {
       const slope = d.slopeAt(x, z);
       if (rand() > 0.15 + slope * 0.8) continue;
       if (d.trailDistanceAt(x, z) < 4 || d.lakeDistance(x, z).d < 1.05) continue;
+      if (this.inClearing(x, z, 4)) continue;
       if (d.def.cabins.some((c) => Math.hypot(x - c.x, z - c.z) < 18)) continue;
       const sc = 0.5 + Math.pow(rand(), 2) * 2.8;
       const y = d.heightAt(x, z) - sc * 0.25;
@@ -265,7 +281,7 @@ export class Scenery {
           const side = (i / 15) % 2 === 0 ? 1 : -1;
           const mx = p.x + nx * side * (t.width / 2 + 1.2);
           const mz = p.z + nzv * side * (t.width / 2 + 1.2);
-          if (d.lakeDistance(mx, mz).d > 1) {
+          if (d.lakeDistance(mx, mz).d > 1 && d.trailDistanceAt(mx, mz) > 0.5) {
             m.compose(new THREE.Vector3(mx, d.heightAt(mx, mz), mz), q.identity(), one);
             markers.push({ m: m.clone(), x: mx, z: mz });
           }
@@ -275,7 +291,8 @@ export class Scenery {
         const off = t.width / 2 + 3;
         const fx = p.x + nx * off;
         const fz = p.z + nzv * off;
-        if (d.lakeDistance(fx, fz).d < 1.1) { prev = null; continue; }
+        // never fence across another trail (junctions) or a course corridor
+        if (d.lakeDistance(fx, fz).d < 1.1 || d.trailDistanceAt(fx, fz) < 2 || this.inClearing(fx, fz, 2)) { prev = null; continue; }
         const fy = d.heightAt(fx, fz);
         const cur = new THREE.Vector3(fx, fy, fz);
         m.compose(cur, q.setFromAxisAngle(up, rand() * 3), one);

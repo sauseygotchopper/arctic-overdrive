@@ -18,7 +18,7 @@ export class Sled {
   private prevQuat = new THREE.Quaternion();
   flippedTime = 0;
 
-  constructor(phys: PhysicsWorld, terrain: TerrainData, public setup: SledSetup, pos: THREE.Vector3, yaw: number) {
+  constructor(phys: PhysicsWorld, private terrain: TerrainData, public setup: SledSetup, pos: THREE.Vector3, yaw: number) {
     const params = deriveParams(setup);
     this.physics = new SledPhysics(phys, terrain, params, pos, yaw);
     this.visual = new SledModel(setup.spec, params);
@@ -85,6 +85,15 @@ export class Sled {
   teleport(pos: THREE.Vector3, yaw: number) {
     const t = this.trailer;
     t?.detach();
+    // on a slope, lift the spawn so no part of the footprint starts buried in the snow
+    const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const r = new THREE.Vector3(-f.z, 0, f.x);
+    let ground = -Infinity;
+    for (const [a, b] of [[1.4, 0.6], [1.4, -0.6], [-1.6, 0.5], [-1.6, -0.5], [0, 0]]) {
+      ground = Math.max(ground, this.terrain.heightAt(pos.x + f.x * a + r.x * b, pos.z + f.z * a + r.z * b));
+    }
+    pos = pos.clone();
+    pos.y = Math.max(pos.y, ground + 0.55);
     this.physics.teleport(pos, yaw);
     this.stunts.reset();
     this.snapshot();

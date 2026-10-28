@@ -33,6 +33,8 @@ type PoseDef = (typeof tricksData.poses)[keyof typeof tricksData.poses];
 export class StuntSystem {
   /** Tricks are disabled while towing (small jumps still score airtime). */
   towing = false;
+  /** Set by modes (e.g. Freeride trick spots) – multiplies banked points. */
+  bonusMultiplier = 1;
   readonly rider: RiderState = { leanX: 0, leanZ: 0, crouch: 0, pose: null, poseSide: 1, poseAmount: 0 };
   readonly events: StuntEvent[] = [];
 
@@ -204,7 +206,7 @@ export class StuntSystem {
 
   private bank(factor: number) {
     if (!this.combo.length) return;
-    const raw = this.comboPoints * this.multiplier;
+    const raw = this.comboPoints * this.multiplier * this.bonusMultiplier;
     const points = Math.round(raw * factor);
     const R = tricksData.rewards;
     this.events.push({

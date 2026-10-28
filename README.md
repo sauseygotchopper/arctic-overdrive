@@ -17,11 +17,26 @@ npm run build    # typecheck + production build
 | Pop: hold to preload, release to jump | Space | A |
 | Tricks: Superman / Heel Clicker / Seat Grab / Cliffhanger | J / K / L / I | X / Y / B / RB |
 | Can-Can / Nac-Nac | J or K + A/D | X or Y + stick |
-| Hitch / unhitch trailer | H | D-pad down |
+| Hitch / unhitch trailer (Freeride) | H | D-pad left |
 | Cycle trailer test load | G | D-pad right |
 | Camera (chase / far / hood) | C | Back |
-| Time of day | T | D-pad up |
-| Recover | R | LB |
+| Recover (Time Trial: back to last checkpoint) | R | LB |
+| Pause | Esc / P | Start |
+| Freeride: time of day / weather | T / Y | D-pad up / R3 |
+| Freeride: photo mode / replay | F / V | D-pad down / L3 |
+
+### Modes
+- **Freeride** – the open valley. 24 hidden frost crystals (light beams show when you're close),
+  6 scenic viewpoints, 3 trick spots (×2 combo points), trailer test (H/G), time of day and weather
+  (clear / snowing / blizzard), photo mode (drag/WASD orbit, wheel/QE zoom, ZX lens, P saves a PNG)
+  and a 25 s cinematic replay with trackside, orbit and heli shots plus slow-mo in the air.
+- **Time Trial** – three checkpoint courses across groomed, powder, ice, slush, crust and moguls.
+  3-2-1 countdown, split deltas against your best, a ghost of your best run, bronze/silver/gold,
+  top-5 personal bests, wrong-way warning and a rewards breakdown. Ghosts are stored in localStorage.
+
+Courses live in `src/data/tracks.json` as chains of trail sections and off-trail connectors; the
+terrain generator shapes those connectors (graded, tree-free corridors) automatically. Rewards are in
+`src/data/modes.json`, freeride points of interest in `src/data/freeride.json`.
 
 ### Tricks
 Flips (backflip / front flip) and 360s are detected from the sled's real rotation; pose tricks are held
@@ -56,9 +71,12 @@ heavy-duty shocks, wide powder skis, ratchet straps / cargo net. From the consol
 - `src/core` — game loop (fixed 60 Hz physics + interpolated rendering), input, camera, save
 - `src/physics` — Rapier world, terrain heightfield, surface definitions
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
-- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, sky, effects
+- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, jumps, sky/weather, effects, snow deformation
+- `src/modes` — GameMode interface, Freeride, TimeTrial, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`
+- `src/ui` — HUD, minimap, menu/pause, styles
 - `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `trailers.json`, `cargo.json`
 
 ## Debugging
 - `__game.simulate(seconds, { throttle: 1, steer: 0.5 }, { jump: true })` — deterministic physics steps.
 - `__dev.startTrail('loop', 'full')` then `__dev.drive(10, 50)` — autopilot along a trail (loads: none/empty/light/full), returns speed, trailer swing, cargo left and events.
+- `__dev.runRoute('lake-run')` — the RouteFollower AI drives a course and reports its time (medal calibration).

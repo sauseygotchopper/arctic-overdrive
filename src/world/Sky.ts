@@ -3,6 +3,14 @@ import { Sky as SkyShader } from 'three/examples/jsm/objects/Sky.js';
 
 export type TimeOfDay = 'morning' | 'golden' | 'overcast' | 'night';
 export const TIMES_OF_DAY: TimeOfDay[] = ['morning', 'golden', 'overcast', 'night'];
+export type Weather = 'clear' | 'snowing' | 'blizzard';
+export const WEATHERS: Weather[] = ['clear', 'snowing', 'blizzard'];
+/** Fog multiplier, falling-snow intensity, wind (m/s) per weather. */
+export const WEATHER_FX: Record<Weather, { fog: number; snow: number; wind: number }> = {
+  clear: { fog: 1, snow: 0.15, wind: 0.5 },
+  snowing: { fog: 1.7, snow: 0.75, wind: 2 },
+  blizzard: { fog: 3.4, snow: 1, wind: 9 },
+};
 
 interface Preset {
   elevation: number; azimuth: number; turbidity: number; rayleigh: number;
@@ -27,6 +35,7 @@ export class SkySystem {
   readonly sky = new SkyShader();
   readonly stars: THREE.Points;
   current: TimeOfDay = 'morning';
+  weather: Weather = 'clear';
   headlights = false;
   private sunDir = new THREE.Vector3();
   private pmrem: THREE.PMREMGenerator;
@@ -76,7 +85,7 @@ export class SkySystem {
     this.hemi.intensity = p.hemiIntensity;
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.set(p.fog);
-    fog.density = p.fogDensity;
+    fog.density = p.fogDensity * WEATHER_FX[this.weather].fog;
     this.renderer.toneMappingExposure = p.exposure;
     this.headlights = p.headlights;
     this.scene.background = tod === 'night' ? new THREE.Color(0x060a14) : tod === 'overcast' ? new THREE.Color(p.fog) : null;
@@ -97,6 +106,17 @@ export class SkySystem {
     this.envRT = this.pmrem.fromScene(envScene, 0.02);
     this.scene.environment = this.envRT.texture;
     this.scene.environmentIntensity = p.envIntensity;
+  }
+
+  setWeather(w: Weather) {
+    this.weather = w;
+    this.apply(this.current);
+  }
+
+  nextWeather(): Weather {
+    const w = WEATHERS[(WEATHERS.indexOf(this.weather) + 1) % WEATHERS.length];
+    this.setWeather(w);
+    return w;
   }
 
   next(): TimeOfDay {

@@ -35,6 +35,8 @@ export class TerrainData {
   readonly sCells: number;
   readonly surface: Uint8Array;
   readonly trailDist: Float32Array;
+  /** Distance to the nearest trail OR course corridor – drives the level bench in the heightfield. */
+  private benchDist: Float32Array;
   /** Height of the nearest trail centreline (trails are cut level across the hillside). */
   private trailH: Float32Array;
   readonly trailPaths: TrailPath[] = [];
@@ -43,7 +45,11 @@ export class TerrainData {
   /** Snow already compressed by tracks (m of depth, 1 m cells). Written by SnowDeformation. */
   readonly packed: Float32Array;
 
-  constructor(readonly def: WorldDef) {
+  /**
+   * @param corridors ungroomed off-trail course connectors: shaped like trails (no cliffs to climb)
+   * but left as natural snow.
+   */
+  constructor(readonly def: WorldDef, private corridors: { points: number[][]; width: number }[] = []) {
     this.size = def.size;
     this.half = def.size / 2;
     this.hStep = this.size / this.hCells;
@@ -54,10 +60,11 @@ export class TerrainData {
     this.surface = new Uint8Array(this.sCells * this.sCells);
     this.trailDist = new Float32Array(this.sCells * this.sCells).fill(BIG);
     this.trailH = new Float32Array(this.sCells * this.sCells);
+    this.benchDist = new Float32Array(this.sCells * this.sCells).fill(BIG);
     this.packed = new Float32Array(this.sCells * this.sCells);
 
+    for (const lake of def.lakes) this.lakeLevels.push(this.lowHeight(lake.x, lake.z) - 6);
     this.buildTrails();
-    for (const lake of def.lakes) this.lakeLevels.push(this.lowHeight(lake.x, lake.z) - 12);
     this.buildHeights();
     this.paintSurfaces();
   }
@@ -65,40 +72,100 @@ export class TerrainData {
   // ---------- generation ----------
 
   private buildTrails() {
-    for (const t of this.def.trails) {
-      const pts = catmullRom(t.points, 2);
-      this.trailPaths.push({ id: t.id, width: t.width, pts });
-      // centreline heights, smoothed along the path so the trail rolls gently
-      const raw = pts.map((p) => this.lowHeight(p.x, p.z));
-      const W = 10;
+    const S = this.sCells;
+    // Each trail rasterises into its own scratch field, then all trails are blended by distance so
+    // the level benches of two trails merge smoothly at junctions instead of meeting as a step.
+    const tDist = new Float32Array(S * S).fill(BIG);
+    const tH = new Float32Array(S * S);
+    const sumW = new Float32Array(S * S);
+    const profiles: { pts: { x: number; z: number }[]; ch: number[] }[] = [];
+    const profileHeightNear = (x: number, z: number): number | null => {
+      let best: number | null = null, bd = 36; // within 6 m
+      for (const pr of profiles) {
+        for (let i = 0; i < pr.pts.length; i++) {
+          const d = (pr.pts[i].x - x) ** 2 + (pr.pts[i].z - z) ** 2;
+          if (d < bd) { bd = d; best = pr.ch[i]; }
+        }
+      }
+      return best;
+    };
+    const all = [...this.def.trails.map((t) => ({ ...t, groomed: true })), ...this.corridors.map((c, i) => ({ id: `corridor-${i}`, ...c, groomed: false }))];
+    for (const t of all) {
+      const pts = t.groomed ? catmullRom(t.points, 2) : straight(t.points, 2);
+      if (t.groomed) this.trailPaths.push({ id: t.id, width: t.width, pts });
+      const closed = t.points.length > 2 && t.points[0][0] === t.points[t.points.length - 1][0] && t.points[0][1] === t.points[t.points.length - 1][1];
+      // centreline heights, smoothed along the path (wrapping on loops) so the trail rolls gently
+      // follow the lake-shaped landform so trails run down into lake bowls instead of being tilted by them
+      const raw = pts.map((p) => this.lakeShape(this.lowHeight(p.x, p.z), p.x, p.z));
+      const W = 16;
+      const n = raw.length;
       const ch = raw.map((_, i) => {
-        let sum = 0, n = 0;
-        for (let k = -W; k <= W; k++) { const j = i + k; if (j >= 0 && j < raw.length) { sum += raw[j]; n++; } }
-        return sum / n;
+        let sum = 0, c = 0;
+        for (let k = -W; k <= W; k++) {
+          let j = i + k;
+          if (closed) j = ((j % (n - 1)) + (n - 1)) % (n - 1);
+          if (j >= 0 && j < n) { sum += raw[j]; c++; }
+        }
+        return sum / c;
       });
+      // junctions: an end that joins an earlier trail takes that trail's height, so they meet level
+      // (a closed loop pins both ends to its own start so it closes without a step)
+      // (ends out on a frozen lake pin to the ice level so there's no step at the shore)
+      const onIce = (p: { x: number; z: number }) => {
+        const l = this.lakeDistance(p.x, p.z);
+        return l.i >= 0 && l.d < 1 ? this.lakeLevels[l.i] : null;
+      };
+      const pin0 = closed ? ch[0] : profileHeightNear(pts[0].x, pts[0].z) ?? onIce(pts[0]);
+      const pinN = closed ? ch[0] : profileHeightNear(pts[n - 1].x, pts[n - 1].z) ?? onIce(pts[n - 1]);
+      if (pin0 !== null) ch[0] = pin0;
+      if (pinN !== null) ch[n - 1] = pinN;
+      // grade limit: trails never climb steeper than a sled can manage; the bench cuts/fills to match
+      const maxGrade = (t.groomed ? 0.28 : 0.3) * 2; // per 2 m sample
+      for (let pass = 0; pass < 8; pass++) {
+        for (let i = 1; i < n; i++) if (!(i === n - 1 && pinN !== null)) ch[i] = clamp(ch[i], ch[i - 1] - maxGrade, ch[i - 1] + maxGrade);
+        for (let i = n - 2; i >= 0; i--) if (!(i === 0 && pin0 !== null)) ch[i] = clamp(ch[i], ch[i + 1] - maxGrade, ch[i + 1] + maxGrade);
+      }
+      profiles.push({ pts, ch });
       const reach = t.width / 2 + 14;
+      let bx0 = S, bx1 = 0, bz0 = S, bz1 = 0;
       for (let i = 0; i < pts.length - 1; i++) {
         const a = pts[i];
         const b = pts[i + 1];
-        const x0 = Math.floor(Math.min(a.x, b.x) - reach + this.half);
-        const x1 = Math.ceil(Math.max(a.x, b.x) + reach + this.half);
-        const z0 = Math.floor(Math.min(a.z, b.z) - reach + this.half);
-        const z1 = Math.ceil(Math.max(a.z, b.z) + reach + this.half);
-        for (let cz = Math.max(0, z0); cz <= Math.min(this.sCells - 1, z1); cz++) {
-          for (let cx = Math.max(0, x0); cx <= Math.min(this.sCells - 1, x1); cx++) {
+        const x0 = Math.max(0, Math.floor(Math.min(a.x, b.x) - reach + this.half));
+        const x1 = Math.min(S - 1, Math.ceil(Math.max(a.x, b.x) + reach + this.half));
+        const z0 = Math.max(0, Math.floor(Math.min(a.z, b.z) - reach + this.half));
+        const z1 = Math.min(S - 1, Math.ceil(Math.max(a.z, b.z) + reach + this.half));
+        bx0 = Math.min(bx0, x0); bx1 = Math.max(bx1, x1); bz0 = Math.min(bz0, z0); bz1 = Math.max(bz1, z1);
+        for (let cz = z0; cz <= z1; cz++) {
+          for (let cx = x0; cx <= x1; cx++) {
+            const idx = cz * S + cx;
             const px = cx - this.half + 0.5;
             const pz = cz - this.half + 0.5;
-            // distance normalised so wider trails count as "closer"
             const d = segDist(px, pz, a.x, a.z, b.x, b.z) - t.width / 2;
-            const idx = cz * this.sCells + cx;
-            if (d < this.trailDist[idx]) {
-              this.trailDist[idx] = d;
-              this.trailH[idx] = (ch[i] + ch[i + 1]) / 2;
+            if (d < tDist[idx]) {
+              tDist[idx] = d;
+              tH[idx] = (ch[i] + ch[i + 1]) / 2;
             }
           }
         }
       }
+      for (let cz = bz0; cz <= bz1; cz++) {
+        for (let cx = bx0; cx <= bx1; cx++) {
+          const idx = cz * S + cx;
+          const d = tDist[idx];
+          if (d < reach) {
+            const w = smoothstep(14, -t.width / 2, d) + 1e-4;
+            sumW[idx] += w;
+            this.trailH[idx] += w * tH[idx];
+            if (t.groomed && d < this.trailDist[idx]) this.trailDist[idx] = d;
+            if (d < this.benchDist[idx]) this.benchDist[idx] = d;
+          }
+          tDist[idx] = BIG;
+          tH[idx] = 0;
+        }
+      }
     }
+    for (let i = 0; i < S * S; i++) if (sumW[i] > 0) this.trailH[i] /= sumW[i];
   }
 
   /** Large-scale landform without detail – trails follow this so they stay smooth. */
@@ -143,6 +210,18 @@ export class TerrainData {
     return this.trailDist[cz * this.sCells + cx];
   }
 
+  /** Carve lake bowls: flat ice inside the shoreline, a rising rim out to 2.2 radii. */
+  private lakeShape(h: number, x: number, z: number): number {
+    const { d, i } = this.lakeDistance(x, z);
+    if (i < 0 || d >= 2.2) return h;
+    const level = this.lakeLevels[i];
+    if (d < 1) return level;
+    const bowlTarget = level + 0.4 + (d - 1) * 6;
+    h = Math.min(h, lerp(bowlTarget, h, smoothstep(1, 2.2, d)));
+    // keep the shoreline just above the ice, fading out so there's no step where land dips lower
+    return lerp(h, Math.max(h, level + 0.25), smoothstep(1.6, 1.0, d));
+  }
+
   private buildHeights() {
     const n = this.hCells + 1;
     const cabinH = this.def.cabins.map((c) => this.lowHeight(c.x, c.z));
@@ -153,19 +232,15 @@ export class TerrainData {
         const low = this.lowHeight(x, z);
         let h = low + this.detailHeight(x, z);
 
-        // groomed trails: a level bench cut into the slope, banks blending back out over ~10 m
-        const td = this.trailDistAt(x, z);
+        // lake bowls first, then trails cut a level bench through whatever is left
+        h = this.lakeShape(h, x, z);
+        const cx = clamp(Math.floor(x + this.half), 0, this.sCells - 1);
+        const cz = clamp(Math.floor(z + this.half), 0, this.sCells - 1);
+        const td = this.benchDist[cz * this.sCells + cx];
         if (td < 12) h = lerp(h, this.trailHeightAt(x, z), smoothstep(12, 0.5, td));
-
-        // lakes: carve a bowl, then a perfectly flat frozen surface
+        // frozen surface is perfectly flat even where a trail crosses it
         const { d, i } = this.lakeDistance(x, z);
-        if (i >= 0 && d < 2.2) {
-          const level = this.lakeLevels[i];
-          const bowlTarget = level + 0.4 + (d - 1) * 9;
-          if (d < 1) h = level;
-          else h = Math.min(h, lerp(bowlTarget, h, smoothstep(1, 2.2, d)));
-          if (d >= 1) h = Math.max(h, level + 0.25);
-        }
+        if (i >= 0 && d < 1) h = this.lakeLevels[i];
 
         // flat pads for cabins
         this.def.cabins.forEach((c, ci) => {
@@ -281,6 +356,19 @@ function segDist(px: number, pz: number, ax: number, az: number, bx: number, bz:
   const len2 = vx * vx + vz * vz || 1;
   const t = clamp(((px - ax) * vx + (pz - az) * vz) / len2, 0, 1);
   return Math.hypot(px - (ax + vx * t), pz - (az + vz * t));
+}
+
+/** Straight polyline resampled every `step` metres. */
+function straight(points: number[][], step: number): { x: number; z: number }[] {
+  const out: { x: number; z: number }[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [ax, az] = points[i], [bx, bz] = points[i + 1];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / step));
+    for (let k = 0; k < n; k++) out.push({ x: ax + ((bx - ax) * k) / n, z: az + ((bz - az) * k) / n });
+  }
+  const l = points[points.length - 1];
+  out.push({ x: l[0], z: l[1] });
+  return out;
 }
 
 /** Catmull-Rom through control points, resampled roughly every `step` metres. */

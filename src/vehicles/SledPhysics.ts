@@ -271,7 +271,10 @@ export class SledPhysics {
       const n = hit.normal;
       nAvg.x += n.x; nAvg.y += n.y; nAvg.z += n.z;
 
-      const compVel = (c.compression - c.prevCompression) / dt;
+      // compression speed from the body's real velocity at the attach point (no first-contact spike
+      // after a teleport or touchdown, which a finite difference of compression would give)
+      const va = body.velocityAtPoint(origin);
+      const compVel = -(va.x * this.up.x + va.y * this.up.y + va.z * this.up.z);
       // stiffer rebound than compression so the rear doesn't buck back up after a hit
       let F = c.k * comp + c.c * compVel * (compVel < 0 ? H.suspension.reboundMult : 1);
       if (comp > c.travel) F += c.k * 10 * (comp - c.travel) + c.c * 2 * Math.max(0, compVel); // bump stop

@@ -1,0 +1,184 @@
+{
+  "_doc": "Time Trial courses. A route is a chain of trail sections ({trail, from:[x,z], to:[x,z], dir}) and straight off-trail connectors ({point:[x,z]}); connectors are kept clear of trees. Checkpoints are spaced evenly along the route. Medal times in seconds. Medal times were calibrated against the RouteFollower autopilot (window.__dev.runRoute) with headroom for a skilled player.",
+  "courses": [
+    {
+      "id": "frostpine-sprint",
+      "name": "Frostpine Sprint",
+      "description": "Groomed trail and tabletops into the moguls, a powder dash down to the big lake, flat-out across the ice and back up the cross trail.",
+      "surfaces": [
+        "Groomed",
+        "Moguls",
+        "Powder",
+        "Ice",
+        "Slush"
+      ],
+      "timeOfDay": "morning",
+      "checkpoints": 12,
+      "route": [
+        {
+          "trail": "loop",
+          "from": [
+            -300,
+            -250
+          ],
+          "to": [
+            320,
+            -150
+          ],
+          "dir": 1
+        },
+        {
+          "point": [
+            215,
+            -20
+          ]
+        },
+        {
+          "point": [
+            60,
+            95
+          ]
+        },
+        {
+          "point": [
+            -20,
+            10
+          ]
+        },
+        {
+          "trail": "cross",
+          "from": [
+            -20,
+            10
+          ],
+          "to": [
+            -180,
+            300
+          ]
+        }
+      ],
+      "medals": {
+        "gold": 105,
+        "silver": 120,
+        "bronze": 140
+      }
+    },
+    {
+      "id": "lake-run",
+      "name": "Twin Lakes Run",
+      "description": "A short, slippery sprint: the lakeway trail over the west lake, then the full width of the big lake on glare ice. Brake early.",
+      "surfaces": [
+        "Groomed",
+        "Ice",
+        "Slush",
+        "Powder"
+      ],
+      "timeOfDay": "golden",
+      "checkpoints": 8,
+      "route": [
+        {
+          "trail": "lakeway",
+          "from": [
+            -360,
+            -80
+          ],
+          "to": [
+            -20,
+            10
+          ]
+        },
+        {
+          "point": [
+            50,
+            40
+          ]
+        },
+        {
+          "point": [
+            215,
+            55
+          ]
+        },
+        {
+          "point": [
+            240,
+            90
+          ]
+        }
+      ],
+      "medals": {
+        "gold": 52,
+        "silver": 60,
+        "bronze": 72
+      }
+    },
+    {
+      "id": "ridge-rally",
+      "name": "Ridge Rally",
+      "description": "From the south camp through the mogul field, up the ridge and over the big kicker, finishing in the slush flats.",
+      "surfaces": [
+        "Powder",
+        "Groomed",
+        "Moguls",
+        "Crust",
+        "Slush"
+      ],
+      "timeOfDay": "overcast",
+      "checkpoints": 12,
+      "route": [
+        {
+          "point": [
+            60,
+            -340
+          ]
+        },
+        {
+          "trail": "loop",
+          "from": [
+            150,
+            -280
+          ],
+          "to": [
+            350,
+            80
+          ],
+          "dir": 1
+        },
+        {
+          "trail": "ridge",
+          "from": [
+            350,
+            80
+          ],
+          "to": [
+            250,
+            280
+          ]
+        },
+        {
+          "trail": "loop",
+          "from": [
+            250,
+            280
+          ],
+          "to": [
+            50,
+            330
+          ],
+          "dir": 1
+        },
+        {
+          "point": [
+            20,
+            215
+          ]
+        }
+      ],
+      "medals": {
+        "gold": 92,
+        "silver": 105,
+        "bronze": 125
+      }
+    }
+  ]
+}

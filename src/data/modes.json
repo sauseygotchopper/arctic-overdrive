@@ -1,0 +1,27 @@
+{
+  "_doc": "Mode rewards and unlock rules. Currency in $, XP in points.",
+  "timeTrial": {
+    "finish": { "currency": 120, "xp": 80 },
+    "medals": {
+      "bronze": { "currency": 300, "xp": 120 },
+      "silver": { "currency": 550, "xp": 200 },
+      "gold":   { "currency": 900, "xp": 320 }
+    },
+    "personalBest": { "currency": 150, "xp": 60 },
+    "firstMedalOnly": true,
+    "_firstMedalOnly": "medal payouts are paid in full the first time you earn that medal tier on a course; repeats pay 25%"
+  },
+  "freeride": {
+    "collectible": { "currency": 75, "xp": 40 },
+    "viewpoint": { "currency": 150, "xp": 80 },
+    "allCollectibles": { "currency": 2500, "xp": 800 },
+    "trickSpotMultiplier": 2
+  },
+  "modes": [
+    { "id": "freeride",  "name": "Freeride",  "tagline": "Open valley. No clock.", "description": "Explore Frostpine Valley, hunt frost crystals, find scenic viewpoints and throw down at trick spots. Change the time of day and weather, then snap it in photo mode.", "available": true },
+    { "id": "timeTrial", "name": "Time Trial", "tagline": "Beat the clock. Beat your ghost.", "description": "Checkpoint courses across mixed snow. Race your best-run ghost for bronze, silver and gold.", "available": true },
+    { "id": "delivery",  "name": "Delivery",  "tagline": "Haul it. Don't break it.", "description": "Pick up cargo and deliver it to remote cabins against the clock.", "available": false, "comingIn": "Phase 5" },
+    { "id": "snocross",  "name": "Snocross",  "tagline": "Six sleds. One holeshot.", "description": "Race five AI riders around a closed jump track.", "available": false, "comingIn": "Phase 5" },
+    { "id": "special",   "name": "Special Delivery", "tagline": "Don't stop. Don't get boxed in.", "description": "Carry a suspicious package while federal agents give chase.", "available": false, "comingIn": "Phase 6" }
+  ]
+}

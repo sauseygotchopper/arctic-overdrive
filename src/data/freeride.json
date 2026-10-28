@@ -1,0 +1,183 @@
+{
+  "_doc": "Freeride points of interest. Collectible frost crystals are hidden around the valley; viewpoints are discovered by riding within r metres; trick spots reference jumps in world.json and multiply combos banked nearby.",
+  "collectibles": [
+    {
+      "id": "crystal-01",
+      "x": -364,
+      "z": -72
+    },
+    {
+      "id": "crystal-02",
+      "x": 388,
+      "z": 319
+    },
+    {
+      "id": "crystal-03",
+      "x": -185,
+      "z": -79
+    },
+    {
+      "id": "crystal-04",
+      "x": -306,
+      "z": -7
+    },
+    {
+      "id": "crystal-05",
+      "x": 348,
+      "z": 71
+    },
+    {
+      "id": "crystal-06",
+      "x": -59,
+      "z": -13
+    },
+    {
+      "id": "crystal-07",
+      "x": -240,
+      "z": -4
+    },
+    {
+      "id": "crystal-08",
+      "x": -59,
+      "z": 117
+    },
+    {
+      "id": "crystal-09",
+      "x": -59,
+      "z": 399
+    },
+    {
+      "id": "crystal-10",
+      "x": 98,
+      "z": 27
+    },
+    {
+      "id": "crystal-11",
+      "x": -244,
+      "z": -63
+    },
+    {
+      "id": "crystal-12",
+      "x": 183,
+      "z": 12
+    },
+    {
+      "id": "crystal-13",
+      "x": 72,
+      "z": 420
+    },
+    {
+      "id": "crystal-14",
+      "x": -264,
+      "z": -420
+    },
+    {
+      "id": "crystal-15",
+      "x": 420,
+      "z": -48
+    },
+    {
+      "id": "crystal-16",
+      "x": 264,
+      "z": 408
+    },
+    {
+      "id": "crystal-17",
+      "x": -420,
+      "z": 336
+    },
+    {
+      "id": "crystal-18",
+      "x": -413,
+      "z": -160
+    },
+    {
+      "id": "crystal-19",
+      "x": -260,
+      "z": 354
+    },
+    {
+      "id": "crystal-20",
+      "x": 39,
+      "z": -363
+    },
+    {
+      "id": "crystal-21",
+      "x": 247,
+      "z": 132
+    },
+    {
+      "id": "crystal-22",
+      "x": 224,
+      "z": 265
+    },
+    {
+      "id": "crystal-23",
+      "x": 148,
+      "z": 376
+    },
+    {
+      "id": "crystal-24",
+      "x": -299,
+      "z": -344
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "eagle-ridge",
+      "name": "Eagle Ridge",
+      "x": 408,
+      "z": 276,
+      "r": 16
+    },
+    {
+      "id": "north-saddle",
+      "name": "North Saddle",
+      "x": 0,
+      "z": 312,
+      "r": 16
+    },
+    {
+      "id": "mill-lookout",
+      "name": "Old Mill Lookout",
+      "x": -360,
+      "z": -180,
+      "r": 16
+    },
+    {
+      "id": "crossroads-knoll",
+      "name": "Crossroads Knoll",
+      "x": -72,
+      "z": 72,
+      "r": 16
+    },
+    {
+      "id": "south-bluff",
+      "name": "South Bluff",
+      "x": -240,
+      "z": -312,
+      "r": 16
+    },
+    {
+      "id": "pine-hollow-rise",
+      "name": "Pine Hollow Rise",
+      "x": -324,
+      "z": 204,
+      "r": 16
+    }
+  ],
+  "trickSpots": [
+    {
+      "jump": 2,
+      "name": "Big Table"
+    },
+    {
+      "jump": 5,
+      "name": "Crossroads Table"
+    },
+    {
+      "jump": 6,
+      "name": "Ridge Launch"
+    }
+  ]
+}

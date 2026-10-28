@@ -2,6 +2,18 @@ import { Sled } from '../vehicles/Sled';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
+export interface ResultsData {
+  title: string;
+  time: string;
+  medal: 'gold' | 'silver' | 'bronze' | null;
+  subtitle: string;
+  medalTimes: [string, string][];
+  leaderboard: { text: string; highlight: boolean }[];
+  rewards: { label: string; currency: number; xp: number }[];
+  total: { currency: number; xp: number };
+  actions: { label: string; key: string; primary?: boolean; run: () => void }[];
+}
+
 /** Driving HUD: speed, RPM, surface, weight, trailer, tricks/combo, wallet. Plain DOM, updated per frame. */
 export class HUD {
   readonly el: HTMLDivElement;
@@ -22,6 +34,11 @@ export class HUD {
         <div class="hud-fps">-- fps</div>
       </div>
       <div class="hud-tr"><div class="hud-wallet"></div></div>
+      <div class="hud-objective"><div class="o-title"></div><div class="o-main"></div><div class="o-sub"></div></div>
+      <div class="hud-countdown"></div>
+      <div class="hud-warning"></div>
+      <div class="hud-replay-tag">● REPLAY <span>V / Esc to exit</span></div>
+      <div class="hud-results"></div>
       <div class="hud-combo"><div class="names"></div><div class="pts"></div><div class="pose"></div></div>
       <div class="hud-banner"></div>
       <div class="hud-toast"></div>
@@ -40,7 +57,7 @@ export class HUD {
       </div>
       <div class="hud-help">
         <b>W/S</b> throttle/brake · <b>A/D</b> steer (spin in air) · <b>Arrows</b> lean / flip · <b>Space</b> hold+release to pop ·
-        <b>J K L I</b> tricks (+A/D for Can-Can, Nac-Nac) · <b>H</b> trailer · <b>G</b> load · <b>C</b> camera · <b>T</b> time · <b>R</b> recover
+        <b>J K L I</b> tricks (+A/D Can-Can, Nac-Nac) · <b>C</b> camera · <b>R</b> recover · <b>Esc</b> pause<span class="help-free"> · <b>H</b> trailer · <b>G</b> load · <b>T</b> time · <b>Y</b> weather · <b>F</b> photo · <b>V</b> replay</span>
       </div>`;
     parent.appendChild(this.el);
     this.q = <T extends HTMLElement = HTMLElement>(s: string) => this.el.querySelector(s) as T;
@@ -59,6 +76,81 @@ export class HUD {
     b.textContent = text;
     b.className = `hud-banner show ${kind}`;
     this.bannerTimer = seconds;
+  }
+
+  setObjective(o: { title: string; main: string; sub: string } | null) {
+    const el = this.q('.hud-objective');
+    el.classList.toggle('show', !!o);
+    if (!o) return;
+    this.q('.hud-objective .o-title').textContent = o.title;
+    this.q('.hud-objective .o-main').textContent = o.main;
+    const sub = this.q('.hud-objective .o-sub');
+    if (sub.innerHTML !== o.sub) sub.innerHTML = o.sub;
+  }
+
+  setCountdown(text: string) {
+    const el = this.q('.hud-countdown');
+    if (el.textContent === text) return;
+    el.textContent = text;
+    el.classList.remove('pop');
+    void el.offsetWidth; // restart the pop animation
+    if (text) el.classList.add('pop');
+  }
+
+  setWarning(text: string) {
+    const el = this.q('.hud-warning');
+    el.textContent = text;
+    el.classList.toggle('show', !!text);
+  }
+
+  setFreerideHelp(on: boolean) {
+    this.el.classList.toggle('freeride', on);
+  }
+
+  private resultsKeys: ((e: KeyboardEvent) => void) | null = null;
+
+  showResults(r: ResultsData) {
+    const el = this.q('.hud-results');
+    const medal = r.medal ? `<div class="r-medal"><span class="medal big ${r.medal}"></span>${r.medal.toUpperCase()}</div>` : '<div class="r-medal none">No medal</div>';
+    el.innerHTML = `
+      <div class="r-card">
+        <div class="r-title">${r.title}</div>
+        <div class="r-time">${r.time}</div>
+        ${medal}
+        <div class="r-sub">${r.subtitle}</div>
+        <div class="r-cols">
+          <div>
+            <div class="r-h">Personal bests</div>
+            ${r.leaderboard.map((l, i) => `<div class="r-row ${l.highlight ? 'hl' : ''}"><span>${i + 1}</span><span>${l.text}</span></div>`).join('')}
+            ${r.medalTimes.length ? `<div class="r-h">Targets</div>${r.medalTimes.map(([m, t]) => `<div class="r-row"><span>${m}</span><span>${t}</span></div>`).join('')}` : ''}
+          </div>
+          <div>
+            <div class="r-h">Rewards</div>
+            ${r.rewards.map((w) => `<div class="r-row"><span>${w.label}</span><span>$${fmt(w.currency)} · ${fmt(w.xp)} XP</span></div>`).join('')}
+            <div class="r-row total"><span>Total</span><span>$${fmt(r.total.currency)} · ${fmt(r.total.xp)} XP</span></div>
+          </div>
+        </div>
+        <div class="r-actions">${r.actions.map((a, i) => `<button data-i="${i}" class="${a.primary ? 'primary' : ''}">${a.label} <kbd>${a.key}</kbd></button>`).join('')}</div>
+      </div>`;
+    el.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => r.actions[+b.dataset.i!].run()));
+    el.classList.add('show');
+    if (this.resultsKeys) window.removeEventListener('keydown', this.resultsKeys);
+    this.resultsKeys = (e) => {
+      const key = e.code === 'Escape' ? 'Esc' : e.code.replace('Key', '');
+      const a = r.actions.find((x) => x.key === key);
+      if (a) { e.stopImmediatePropagation(); a.run(); }
+    };
+    window.addEventListener('keydown', this.resultsKeys, true);
+  }
+
+  hideResults() {
+    this.q('.hud-results').classList.remove('show');
+    if (this.resultsKeys) window.removeEventListener('keydown', this.resultsKeys, true);
+    this.resultsKeys = null;
+  }
+
+  get resultsOpen() {
+    return this.q('.hud-results').classList.contains('show');
   }
 
   setWallet(currency: number, xp: number) {

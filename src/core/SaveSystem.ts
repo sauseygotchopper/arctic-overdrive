@@ -7,7 +7,9 @@ export interface SaveData {
   currentSled: string;
   upgrades: Record<string, string[]>;
   bestTimes: Record<string, number>;
-  settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; camera: string };
+  settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; weather: string; camera: string };
+  timeTrials: Record<string, { best: number | null; times: number[]; splits: number[]; medals: string[] }>;
+  freeride: { crystals: string[]; viewpoints: string[] };
   tutorialDone: boolean;
   trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string } };
 }
@@ -22,7 +24,9 @@ export const DEFAULT_SAVE: SaveData = {
   currentSled: 'ravik-crossfire-850',
   upgrades: {},
   bestTimes: {},
-  settings: { quality: 'high', timeOfDay: 'morning', camera: 'chase' },
+  settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase' },
+  timeTrials: {},
+  freeride: { crystals: [], viewpoints: [] },
   tutorialDone: false,
   trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' } },
 };
@@ -42,6 +46,7 @@ export class SaveSystem {
       return {
         ...structuredClone(DEFAULT_SAVE), ...parsed,
         settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
+        freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
         trailer: { ...DEFAULT_SAVE.trailer, ...parsed.trailer, upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades } },
       };
     } catch {

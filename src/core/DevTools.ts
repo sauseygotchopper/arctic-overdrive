@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from './Game';
 import type { CargoType } from '../vehicles/Cargo';
+import { RouteFollower, FollowOptions } from '../modes/ai/RouteFollower';
 
 /**
  * Console helpers for tuning: `__dev.startTrail('loop', 'full')`, `__dev.drive(10, 60)`.
@@ -76,5 +77,42 @@ export class DevTools {
     out.dist = Math.round(out.dist);
     out.events = this.log.splice(0);
     return out;
+  }
+
+  /**
+   * Drive a course route with the AI follower and time it (medal calibration).
+   * Returns elapsed seconds, or -1 if it got stuck.
+   */
+  runRoute(courseId: string, opts: FollowOptions = {}, maxSeconds = 400) {
+    const g = this.game;
+    const route = g.routes.get(courseId)!;
+    const f = new RouteFollower(route, g.terrain, opts, route.jumpZones(g.jumps.list));
+    const p = g.player.physics;
+    const p0 = route.pts[1], d0 = route.dirs[1];
+    g.player.teleport(new THREE.Vector3(p0.x, g.terrain.heightAt(p0.x, p0.z) + 0.6, p0.z), Math.atan2(d0.x, d0.z));
+    g.snow.clear();
+    g.simulate(0.5, {}); // settle (holding brake at standstill would engage reverse)
+    let t = 0, stuck = 0, lastProg = 0, crashes = 0;
+    const log: string[] = [];
+    while (t < maxSeconds && !f.finished) {
+      const d = f.control(p);
+      g.simulate(1 / 30, d);
+      t += 1 / 30;
+      if (p.crashTimer > 0.85) crashes++;
+      if (Math.floor(t) % 5 === 0 && Math.abs(t % 5) < 1 / 30) {
+        if (f.progress - lastProg < 5) {
+          stuck++;
+          log.push(`stuck@${Math.round(f.progress)}m (${Math.round(p.position.x)},${Math.round(p.position.z)}) ${p.surface.key}`);
+          // put it back on the line a little further on
+          const i = route.indexAt(f.progress + 6);
+          const q = route.pts[i], dq = route.dirs[i];
+          g.player.teleport(new THREE.Vector3(q.x, g.terrain.heightAt(q.x, q.z) + 0.6, q.z), Math.atan2(dq.x, dq.z));
+          f.reset(f.progress + 6);
+        }
+        lastProg = f.progress;
+        if (stuck > 6) return { time: -1, progress: Math.round(f.progress), length: Math.round(route.length), log };
+      }
+    }
+    return { time: +t.toFixed(2), progress: Math.round(f.progress), length: Math.round(route.length), avgKmh: Math.round((route.length / t) * 3.6), crashes, log };
   }
 }
