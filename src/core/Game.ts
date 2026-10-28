@@ -8,6 +8,8 @@ import { Jumps, JumpDef } from '../world/Jumps';
 import { SkySystem, TimeOfDay, Weather, WEATHER_FX } from '../world/Sky';
 import { Effects } from '../world/Effects';
 import { SnowDeformation, DEFORM_DEPTH } from '../world/SnowDeformation';
+import { SnocrossTrack } from '../world/SnocrossTrack';
+import snocrossData from '../data/snocross.json';
 import { Sled } from '../vehicles/Sled';
 import { Progression } from './Progression';
 import { Showroom } from '../ui/Showroom';
@@ -26,6 +28,8 @@ import { GameMode } from '../modes/GameMode';
 import { Route, RouteStep, corridorsOf } from '../modes/Route';
 import { COURSES, TimeTrial } from '../modes/TimeTrial';
 import { Freeride } from '../modes/Freeride';
+import { Snocross, SNOCROSS_EVENTS } from '../modes/Snocross';
+import { Delivery, DELIVERY_JOBS } from '../modes/Delivery';
 import { Replay } from '../modes/Replay';
 import { PhotoMode } from '../modes/PhotoMode';
 
@@ -48,6 +52,7 @@ export class Game {
   hud!: HUD;
   player!: Sled;
   jumps!: Jumps;
+  track!: SnocrossTrack;
   loose!: LooseCargo;
   snow!: SnowDeformation;
   minimap!: MiniMap;
@@ -67,6 +72,8 @@ export class Game {
   private scenery!: Scenery;
   private loadIndex = 1;
   private acc = 0;
+  /** Fraction of the way to the next physics step (modes render their own sleds with it). */
+  get renderAlpha() { return this.acc / PHYSICS_DT; }
   private last = 0;
   private menuT = 0;
 
@@ -115,6 +122,10 @@ export class Game {
     this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
     this.scene.add(this.jumps.group);
     for (const c of this.jumps.colliders) this.physics.addTrimesh(c.vertices, c.indices);
+    const venue = this.terrain.def.venues!.find((v) => v.id === snocrossData.venue)!;
+    this.track = new SnocrossTrack(this.terrain, venue, snocrossData.trackWidth);
+    this.scene.add(this.track.group);
+    this.physics.addTrimesh(this.track.vertices, this.track.indices);
 
     await step('Fuelling up…', 0.9);
     this.sky = new SkySystem(this.scene, this.renderer, q === 'high' ? 2048 : q === 'medium' ? 1024 : 0);
@@ -209,7 +220,10 @@ export class Game {
     this.menu.hidePause();
     this.hud.hideResults();
     this.paused = false;
-    this.mode = id === 'timeTrial' ? new TimeTrial(this, arg ?? COURSES[0].id) : new Freeride(this);
+    this.mode = id === 'timeTrial' ? new TimeTrial(this, arg ?? COURSES[0].id)
+      : id === 'snocross' ? new Snocross(this, arg ?? SNOCROSS_EVENTS[0].id)
+      : id === 'delivery' ? new Delivery(this, arg ?? DELIVERY_JOBS[0].id)
+      : new Freeride(this);
     this.mode.enter();
     this.hud.setFreerideHelp(id === 'freeride');
     this.hud.el.classList.remove('in-menu');
@@ -217,7 +231,7 @@ export class Game {
     this.acc = 0;
   }
 
-  toMenu() {
+  toMenu(view?: 'delivery' | 'snocross' | 'courses') {
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -233,7 +247,7 @@ export class Game {
     this.save.save();
     this.state = 'menu';
     this.hud.el.classList.add('in-menu');
-    this.menu.show();
+    this.menu.show(view);
   }
 
   setPaused(p: boolean) {
@@ -307,6 +321,7 @@ export class Game {
     const n = Math.round(seconds / PHYSICS_DT);
     for (let i = 0; i < n; i++) {
       this.player.fixedUpdate(PHYSICS_DT, d, tc);
+      this.mode?.prePhysics?.(PHYSICS_DT);
       this.physics.step();
       this.mode?.fixedUpdate(PHYSICS_DT);
       if (i % 2 === 0) {
@@ -326,6 +341,7 @@ export class Game {
     for (const e of st.events) if (e.type !== 'trick' && !(e.type === 'landed' && e.quality === 'clean')) this.dev.log.push(`${e.type}${'quality' in e ? ':' + e.quality : ''}${'points' in e ? ':' + e.points : ''}`);
     if (t) for (const e of t.events) if (e.type !== 'bottomOut') this.dev.log.push(`trailer:${e.type}${'spilled' in e ? ':' + e.spilled : ''}@${Math.round(this.player.physics.speed * 3.6)}kmh`);
     for (const e of st.events.splice(0)) {
+      this.mode?.onStunt?.(e);
       switch (e.type) {
         case 'landed':
           if (e.quality === 'crash') this.hud.banner('Crash!', 'bad');
@@ -450,6 +466,7 @@ export class Game {
     if (!live) tricks.jumpHeld = false;
     while (this.acc >= PHYSICS_DT && steps < MAX_STEPS) {
       this.player.fixedUpdate(PHYSICS_DT, drive, tricks);
+      this.mode?.prePhysics?.(PHYSICS_DT);
       this.physics.step();
       this.mode?.fixedUpdate(PHYSICS_DT);
       this.acc -= PHYSICS_DT;

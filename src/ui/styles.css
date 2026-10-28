@@ -318,3 +318,14 @@ kbd { font-family: var(--font-ui); font-size: 0.8em; padding: 1px 6px; border-ra
 .g-goal-l, .m-goal-l { font-size: 11px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .m-goal { max-width: 760px; margin-bottom: 18px; padding: 10px 14px; border-radius: 12px; background: rgba(11,22,38,.6); border: 1px solid rgba(156,195,230,.18); font-family: var(--font-ui); }
 @media (max-width: 900px) { .g-goal { order: 4; max-width: none; width: 100%; margin-left: 0; } }
+.hud-tr { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.hud-standings { display: none; min-width: 210px; padding: 8px 10px; border-radius: 10px; background: rgba(11,22,38,.55); backdrop-filter: blur(6px);
+  font-family: var(--font-ui); font-size: 12px; font-variant-numeric: tabular-nums; }
+.hud-standings.show { display: block; }
+.hud-standings div { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; opacity: .85; }
+.hud-standings div.me { color: var(--accent); font-weight: 700; opacity: 1; }
+.course.locked { opacity: .5; cursor: default; }
+.course.locked:hover { transform: none; border-color: rgba(156,195,230,.22); box-shadow: none; }
+.course .pay { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: #7cf3b0; }
+.chips span.frag { background: rgba(255,90,90,.25); }
+.course-times .lockmsg { color: #ffd166; }

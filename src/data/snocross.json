@@ -1,0 +1,24 @@
+{
+  "_doc": "Snocross events at Frostpine Arena. Your sled must be at least the event tier. AI riders all ride aiSled with skill 0..1 (corner bravery, top speed, line accuracy). rewards/xp are by finishing place (1st..6th).",
+  "venue": "frostpine-arena",
+  "trackWidth": 11,
+  "riders": [
+    { "name": "Kalle Virta", "number": 12, "paint": "glacier", "gear": "whiteout" },
+    { "name": "Maddie Brooks", "number": 31, "paint": "hivis", "gear": "racer" },
+    { "name": "Tomas Lind", "number": 4, "paint": "lime", "gear": "backcountry" },
+    { "name": "Ava Kowalski", "number": 88, "paint": "arctic", "gear": "blaze" },
+    { "name": "Jonah Reyes", "number": 19, "paint": "stealth", "gear": "stock" }
+  ],
+  "events": [
+    { "id": "rookie-cup", "name": "Rookie Cup", "tier": 1, "laps": 3, "aiSled": "nordvik-trail-600", "aiSkill": 0.72,
+      "rewards": [1200, 800, 550, 350, 220, 150], "xp": [320, 240, 180, 130, 100, 80] },
+    { "id": "crossover-clash", "name": "Crossover Clash", "tier": 2, "laps": 3, "aiSled": "ravik-crossfire-850", "aiSkill": 0.8,
+      "rewards": [2200, 1500, 1000, 650, 400, 250], "xp": [450, 340, 260, 190, 140, 110] },
+    { "id": "mountain-mayhem", "name": "Mountain Mayhem", "tier": 3, "laps": 3, "aiSled": "altamont-summit-165", "aiSkill": 0.86,
+      "rewards": [3200, 2200, 1500, 950, 600, 380], "xp": [600, 450, 340, 250, 180, 140] },
+    { "id": "pro-snocross", "name": "Pro Snocross", "tier": 4, "laps": 4, "aiSled": "kestrel-sxr-600", "aiSkill": 0.92,
+      "rewards": [4800, 3200, 2200, 1400, 900, 550], "xp": [800, 600, 450, 330, 240, 180] },
+    { "id": "overdrive-open", "name": "Overdrive Open", "tier": 5, "laps": 5, "aiSled": "overdrive-turbo-build", "aiSkill": 0.97,
+      "rewards": [8000, 5200, 3500, 2200, 1400, 900], "xp": [1100, 820, 620, 450, 330, 250] }
+  ]
+}

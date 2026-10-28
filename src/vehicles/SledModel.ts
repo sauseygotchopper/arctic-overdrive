@@ -15,6 +15,8 @@ export interface SledVisual {
   setTrackSpeed(metersPerSecond: number, dt: number): void;
   setRider(state: RiderState, dt: number): void;
   setHeadlights(on: boolean): void;
+  /** Put cargo meshes on the rear rack (empty array clears it). */
+  setRack(items: THREE.Object3D[]): void;
   /** Rider head position in sled space – the hood camera sits here. */
   headLocal: THREE.Vector3;
 }
@@ -37,6 +39,8 @@ export class SledModel implements SledVisual {
   private aArms: { mesh: THREE.Mesh; from: THREE.Vector3; left: boolean; dy: number }[] = [];
   private trackScroll = 0;
   private trackLen: number;
+  private rack = new THREE.Group();
+  private rackFrame = new THREE.Group();
 
   constructor(spec: SledSpec, params: SledParams, livery: Livery = DEFAULT_LIVERY) {
     const paintDef = COSMETICS.paints.find((x) => x.id === livery.paint);
@@ -235,6 +239,22 @@ export class SledModel implements SledVisual {
       this.root.add(strap);
     }
 
+    // ---------- rear rack (shown when carrying cargo) ----------
+    this.rack.position.set(0, 0.16, tunnelRear + 0.42);
+    for (const sx of [-0.23, 0.23]) {
+      const rail = box(0.03, 0.03, 0.62, metal);
+      rail.position.set(sx, 0.06, 0);
+      this.rackFrame.add(rail);
+    }
+    for (const sz of [-0.3, 0.3]) {
+      const cross = box(0.48, 0.03, 0.03, metal);
+      cross.position.set(0, 0.06, sz);
+      this.rackFrame.add(cross);
+    }
+    this.rackFrame.visible = false;
+    this.rack.add(this.rackFrame);
+    this.root.add(this.rack);
+
     // ---------- rider ----------
     this.root.add(this.rider.group);
 
@@ -277,6 +297,20 @@ export class SledModel implements SledVisual {
     const gr = this.gripR.position.clone().applyMatrix4(this.bars.matrix);
     this.rider.update(dt, state, gl, gr);
     this.headLocal.copy(this.rider.headPos).add(new THREE.Vector3(0, 0.05, 0.05));
+  }
+
+  setRack(items: THREE.Object3D[]) {
+    for (const c of [...this.rack.children]) if (c !== this.rackFrame) this.rack.remove(c);
+    this.rackFrame.visible = items.length > 0;
+    // pack in two columns along the rack, stacking when it's full
+    let y = 0.08, row = 0, col = 0;
+    items.forEach((m) => {
+      const size = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3());
+      m.position.set((col - 0.5) * 0.26, y + size.y / 2, (row - 0.5) * 0.32);
+      m.rotation.set(0, 0, 0);
+      this.rack.add(m);
+      if (++col > 1) { col = 0; if (++row > 1) { row = 0; y += 0.35; } }
+    });
   }
 
   setHeadlights(on: boolean) {

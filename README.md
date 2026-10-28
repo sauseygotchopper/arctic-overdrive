@@ -34,6 +34,17 @@ npm run build    # typecheck + production build
   3-2-1 countdown, split deltas against your best, a ghost of your best run, bronze/silver/gold,
   top-5 personal bests, wrong-way warning and a rewards breakdown. Ghosts are stored in localStorage.
 
+- **Delivery** – a job board of runs between the trailhead depot and the valley's cabins
+  (`src/data/deliveries.json`). Light jobs ride on the rear rack (their mass is added to the sled);
+  heavy jobs use the trailer and need a tow hitch. Fragile cargo loses value on hard landings
+  and crashes can shed rack cargo; roll up slowly next to spilled items to reload them. Pay scales
+  with what arrives and its condition, plus a capped time bonus; late deliveries pay half.
+- **Snocross** – six-rider races at Frostpine Arena (`src/world/SnocrossTrack.ts`): banked berms
+  from the track's curvature, a tabletop, a double, rhythm rollers and whoops inside snow-bank walls.
+  Five events, one per tier (`src/data/snocross.json`); the AI rides the event's sled with the same
+  physics as you, using the RouteFollower plus lanes, traffic avoidance and marshal recovery.
+  Grid start, laps, live standings, best lap and payouts by place.
+
 Courses live in `src/data/tracks.json` as chains of trail sections and off-trail connectors; the
 terrain generator shapes those connectors (graded, tree-free corridors) automatically. Rewards are in
 `src/data/modes.json`, freeride points of interest in `src/data/freeride.json`.

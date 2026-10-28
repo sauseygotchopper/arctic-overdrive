@@ -9,6 +9,8 @@ export interface ResultsData {
   subtitle: string;
   medalTimes: [string, string][];
   leaderboard: { text: string; highlight: boolean }[];
+  /** Heading over the leaderboard column (default "Personal bests"). */
+  leaderboardTitle?: string;
   rewards: { label: string; currency: number; xp: number }[];
   total: { currency: number; xp: number };
   actions: { label: string; key: string; primary?: boolean; run: () => void }[];
@@ -33,7 +35,7 @@ export class HUD {
         <div class="hud-weight"></div>
         <div class="hud-fps">-- fps</div>
       </div>
-      <div class="hud-tr"><div class="hud-wallet"></div></div>
+      <div class="hud-tr"><div class="hud-wallet"></div><div class="hud-standings"></div></div>
       <div class="hud-objective"><div class="o-title"></div><div class="o-main"></div><div class="o-sub"></div></div>
       <div class="hud-countdown"></div>
       <div class="hud-warning"></div>
@@ -103,6 +105,15 @@ export class HUD {
     el.classList.toggle('show', !!text);
   }
 
+  /** Race standings list (null hides it). */
+  setStandings(rows: { text: string; gap: string; me: boolean }[] | null) {
+    const el = this.q('.hud-standings');
+    el.classList.toggle('show', !!rows);
+    if (!rows) return;
+    const html = rows.map((r) => `<div class="${r.me ? 'me' : ''}"><span>${r.text}</span><span>${r.gap}</span></div>`).join('');
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+
   setFreerideHelp(on: boolean) {
     this.el.classList.toggle('freeride', on);
   }
@@ -120,7 +131,7 @@ export class HUD {
         <div class="r-sub">${r.subtitle}</div>
         <div class="r-cols">
           <div>
-            <div class="r-h">Personal bests</div>
+            <div class="r-h">${r.leaderboardTitle ?? 'Personal bests'}</div>
             ${r.leaderboard.map((l, i) => `<div class="r-row ${l.highlight ? 'hl' : ''}"><span>${i + 1}</span><span>${l.text}</span></div>`).join('')}
             ${r.medalTimes.length ? `<div class="r-h">Targets</div>${r.medalTimes.map(([m, t]) => `<div class="r-row"><span>${m}</span><span>${t}</span></div>`).join('')}` : ''}
           </div>

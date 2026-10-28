@@ -11,7 +11,7 @@ export interface SledSpec {
   reference: string;
   style: 'trail' | 'crossover' | 'mountain' | 'race' | 'turbo';
   price: number;
-  unlock: { xp?: number; medals?: number; gold?: number; crystals?: number };
+  unlock: { xp?: number; medals?: number; gold?: number; crystals?: number; deliveries?: number; podiums?: number; wins?: number };
   powerKW: number;
   peakRpm: number;
   idleRpm: number;

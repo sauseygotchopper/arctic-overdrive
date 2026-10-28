@@ -5,6 +5,7 @@ export interface TrailDef { id: string; width: number; points: number[][] }
 export interface LakeDef { x: number; z: number; r: number }
 export interface ZoneDef { surface: SurfaceKey; shape: 'circle'; x: number; z: number; r: number }
 export interface CabinDef { id: string; x: number; z: number; rot: number }
+export interface VenueDef { id: string; x: number; z: number; rot: number; halfLength: number; halfWidth: number; margin: number }
 export interface WorldDef {
   size: number;
   seed: number;
@@ -13,6 +14,7 @@ export interface WorldDef {
   lakes: LakeDef[];
   zones: ZoneDef[];
   cabins: CabinDef[];
+  venues?: VenueDef[];
 }
 
 /** A smoothed trail polyline sampled every ~2 m. */
@@ -42,6 +44,8 @@ export class TerrainData {
   readonly trailPaths: TrailPath[] = [];
   readonly noise: Noise2D;
   readonly lakeLevels: number[] = [];
+  /** Flat pad height of each venue (world.json venues). */
+  readonly venueHeights: number[] = [];
   /** Snow already compressed by tracks (m of depth, 1 m cells). Written by SnowDeformation. */
   readonly packed: Float32Array;
 
@@ -64,6 +68,7 @@ export class TerrainData {
     this.packed = new Float32Array(this.sCells * this.sCells);
 
     for (const lake of def.lakes) this.lakeLevels.push(this.lowHeight(lake.x, lake.z) - 6);
+    for (const v of def.venues ?? []) this.venueHeights.push(this.lowHeight(v.x, v.z));
     this.buildTrails();
     this.buildHeights();
     this.paintSurfaces();
@@ -242,6 +247,12 @@ export class TerrainData {
         const { d, i } = this.lakeDistance(x, z);
         if (i >= 0 && d < 1) h = this.lakeLevels[i];
 
+        // venues: a dead-flat pad with banks blending out over `margin`
+        (this.def.venues ?? []).forEach((v, vi) => {
+          const dv = this.venueDistance(v, x, z);
+          if (dv < v.margin) h = lerp(h, this.venueHeights[vi], smoothstep(v.margin, 0, dv));
+        });
+
         // flat pads for cabins
         this.def.cabins.forEach((c, ci) => {
           const dc = Math.hypot(x - c.x, z - c.z);
@@ -287,6 +298,7 @@ export class TerrainData {
           if (Math.hypot(x - zn.x, z - zn.z) < zn.r * wob) s = SURFACE_ID[zn.surface];
         }
 
+        if ((this.def.venues ?? []).some((v) => this.venueDistance(v, x, z) < 4)) s = SURFACE_ID.groomed;
         const { d } = this.lakeDistance(x, z);
         if (d < 1) {
           s = SURFACE_ID.ice;
@@ -330,6 +342,19 @@ export class TerrainData {
     const cx = clamp(Math.floor(x + this.half), 0, this.sCells - 1);
     const cz = clamp(Math.floor(z + this.half), 0, this.sCells - 1);
     return this.surface[cz * this.sCells + cx];
+  }
+
+  /** Venue-local coordinates: u along its length, v across. */
+  venueLocal(v: VenueDef, x: number, z: number): { u: number; v: number } {
+    const c = Math.cos(v.rot), s = Math.sin(v.rot);
+    const dx = x - v.x, dz = z - v.z;
+    return { u: dx * c + dz * s, v: -dx * s + dz * c };
+  }
+
+  /** Distance outside a venue's rectangle (0 inside). */
+  venueDistance(v: VenueDef, x: number, z: number): number {
+    const l = this.venueLocal(v, x, z);
+    return Math.hypot(Math.max(0, Math.abs(l.u) - v.halfLength), Math.max(0, Math.abs(l.v) - v.halfWidth));
   }
 
   packedAt(x: number, z: number): number {

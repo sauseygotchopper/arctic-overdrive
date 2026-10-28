@@ -1,0 +1,115 @@
+{
+  "_doc": "Delivery jobs. from/to are cabin ids from world.json ('depot' = the trailhead spawn). carry: 'rack' (on the sled, adds to its mass) or 'trailer' (needs a tow hitch). timeLimit in seconds; pay is the base for full-health, on-time delivery. Fragile cargo loses value on hard landings; lost items aren't paid; late deliveries pay latePay \u00d7 base. Time bonus = seconds early \u00d7 timeBonusPerSecond, capped at timeBonusCap \u00d7 base pay.",
+  "rackMaxKg": 45,
+  "latePay": 0.5,
+  "timeBonusPerSecond": 3,
+  "xpPerDollar": 0.25,
+  "jobs": [
+    {
+      "id": "medic-hollow",
+      "name": "Medical Run",
+      "client": "Pine Hollow cabin",
+      "from": "depot",
+      "to": "pine-hollow",
+      "carry": "rack",
+      "cargo": [
+        "medical",
+        "medical"
+      ],
+      "timeLimit": 150,
+      "pay": 900,
+      "tier": 1,
+      "brief": "Two cases of medical supplies for the family at Pine Hollow. Fragile \u2013 take the jumps easy."
+    },
+    {
+      "id": "parcels-camp",
+      "name": "Parcel Post",
+      "client": "South Camp",
+      "from": "depot",
+      "to": "south-camp",
+      "carry": "rack",
+      "cargo": [
+        "parcel",
+        "parcel",
+        "parcel"
+      ],
+      "timeLimit": 110,
+      "pay": 650,
+      "tier": 1,
+      "brief": "Mail run to the south camp. Light and quick, but the parcels don't like rough handling."
+    },
+    {
+      "id": "fuel-ridge",
+      "name": "Fuel to the Ridge",
+      "client": "Ridge Hut",
+      "from": "lakeside",
+      "to": "ridge-hut",
+      "carry": "trailer",
+      "cargo": [
+        "fuel",
+        "fuel",
+        "fuel",
+        "fuel"
+      ],
+      "timeLimit": 170,
+      "pay": 1400,
+      "tier": 1,
+      "brief": "Four jerry cans up to the ridge hut. Heavy on the hitch and the climb is long."
+    },
+    {
+      "id": "firewood-mill",
+      "name": "Firewood Haul",
+      "client": "Old Mill",
+      "from": "pine-hollow",
+      "to": "old-mill",
+      "carry": "trailer",
+      "cargo": [
+        "firewood",
+        "firewood",
+        "firewood",
+        "firewood",
+        "crate"
+      ],
+      "timeLimit": 260,
+      "pay": 1900,
+      "tier": 2,
+      "brief": "A full trailer of firewood across the valley. Mind the side slopes \u2013 it's top-heavy."
+    },
+    {
+      "id": "supply-lakeside",
+      "name": "Lakeside Resupply",
+      "client": "Lakeside cabin",
+      "from": "south-camp",
+      "to": "lakeside",
+      "carry": "trailer",
+      "cargo": [
+        "crate",
+        "crate",
+        "medical",
+        "fuel",
+        "parcel",
+        "parcel"
+      ],
+      "timeLimit": 220,
+      "pay": 2200,
+      "tier": 2,
+      "brief": "Mixed load with fragile medical and parcels. The short way is across the ice\u2026"
+    },
+    {
+      "id": "express-ridge",
+      "name": "Express Medical",
+      "client": "Ridge Hut",
+      "from": "old-mill",
+      "to": "ridge-hut",
+      "carry": "rack",
+      "cargo": [
+        "medical"
+      ],
+      "timeLimit": 240,
+      "pay": 2600,
+      "tier": 3,
+      "brief": "Urgent supplies, end to end of the valley. Every second counts and the box must arrive intact."
+    }
+  ],
+  "timeBonusCap": 0.5
+}

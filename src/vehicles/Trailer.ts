@@ -156,6 +156,14 @@ export class Trailer {
     this.updateMass();
   }
 
+  /** Put one (recovered) item back on the deck. */
+  addCargo(item: CargoItem) {
+    this.cargo.push(item);
+    for (const c of this.cargo) c.mesh.removeFromParent();
+    this.layoutCargo();
+    this.updateMass();
+  }
+
   /** Simple packing: rows of two across the deck, stacking up when the deck is full. */
   private layoutCargo() {
     const b = TRAILER.base;

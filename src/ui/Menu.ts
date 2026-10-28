@@ -3,6 +3,10 @@ import modesData from '../data/modes.json';
 import freerideData from '../data/freeride.json';
 import { COURSES, fmtTime } from '../modes/TimeTrial';
 import { riderLevel } from '../core/Progression';
+import { DELIVERY_JOBS, jobPoint } from '../modes/Delivery';
+import { SNOCROSS_EVENTS } from '../modes/Snocross';
+import { getSled, getPart } from '../vehicles/SledSpec';
+import cargoData from '../data/cargo.json';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m}"></span>` : '');
@@ -14,7 +18,7 @@ const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m
 export class Menu {
   readonly el: HTMLDivElement;
   readonly pauseEl: HTMLDivElement;
-  private view: 'modes' | 'courses' = 'modes';
+  private view: 'modes' | 'courses' | 'delivery' | 'snocross' = 'modes';
 
   constructor(private game: Game) {
     this.el = document.createElement('div');
@@ -24,12 +28,12 @@ export class Menu {
     game.container.append(this.el, this.pauseEl);
     window.addEventListener('keydown', (e) => {
       if (!this.el.classList.contains('show')) return;
-      if (e.code === 'Escape' && this.view === 'courses') { this.view = 'modes'; this.render(); }
+      if (e.code === 'Escape' && this.view !== 'modes') { this.view = 'modes'; this.render(); }
     });
   }
 
-  show() {
-    this.view = 'modes';
+  show(view: 'courses' | 'delivery' | 'snocross' | 'modes' = 'modes') {
+    this.view = view;
     this.render();
     this.el.classList.add('show');
   }
@@ -67,13 +71,20 @@ export class Menu {
       const cards = modesData.modes.map((m) => {
         let best = '';
         if (m.id === 'freeride') best = `${sd.freeride.crystals.length}/${freerideData.collectibles.length} crystals · ${sd.freeride.viewpoints.length}/${freerideData.viewpoints.length} viewpoints`;
+        if (m.id === 'delivery') best = `${sd.delivery.completed} deliveries completed`;
+        if (m.id === 'snocross') {
+          const r = Object.values(sd.snocross);
+          best = `${r.reduce((a, x) => a + x.wins, 0)} wins · ${r.reduce((a, x) => a + x.podiums, 0)} podiums`;
+        }
         if (m.id === 'timeTrial') {
           const medals = Object.values(sd.timeTrials).flatMap((r) => r.medals);
           best = `${medals.filter((x) => x === 'gold').length} gold · ${medals.filter((x) => x === 'silver').length} silver · ${medals.filter((x) => x === 'bronze').length} bronze`;
         }
         const reward = m.id === 'freeride'
           ? `$${modesData.freeride.collectible.currency} per crystal · ${modesData.freeride.trickSpotMultiplier}× trick spots`
-          : m.id === 'timeTrial' ? `Up to $${modesData.timeTrial.medals.gold.currency + modesData.timeTrial.finish.currency} per course` : '';
+          : m.id === 'timeTrial' ? `Up to $${modesData.timeTrial.medals.gold.currency + modesData.timeTrial.finish.currency} per course`
+          : m.id === 'delivery' ? `$${Math.min(...DELIVERY_JOBS.map((j) => j.pay))}–${Math.max(...DELIVERY_JOBS.map((j) => j.pay)).toLocaleString('en-US')} per job + time bonus`
+          : m.id === 'snocross' ? `Up to $${Math.max(...SNOCROSS_EVENTS.map((e) => e.rewards[0])).toLocaleString('en-US')} for a win` : '';
         return `
           <button class="card ${m.available ? '' : 'locked'}" data-mode="${m.id}" ${m.available ? '' : 'disabled'}>
             <div class="card-name">${m.name}</div>
@@ -87,8 +98,13 @@ export class Menu {
       this.el.querySelectorAll<HTMLButtonElement>('.card[data-mode]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.mode!;
         if (id === 'timeTrial') { this.view = 'courses'; this.render(); }
+        else if (id === 'delivery' || id === 'snocross') { this.view = id; this.render(); }
         else g.startMode(id);
       }));
+    } else if (this.view === 'delivery') {
+      this.renderJobs(head, goalHtml);
+    } else if (this.view === 'snocross') {
+      this.renderEvents(head, goalHtml);
     } else {
       const rows = COURSES.map((c) => {
         const r = sd.timeTrials[c.id];
@@ -111,6 +127,62 @@ export class Menu {
       this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
       this.el.querySelectorAll<HTMLButtonElement>('.course').forEach((b) => b.addEventListener('click', () => g.startMode('timeTrial', b.dataset.course)));
     }
+  }
+
+  private renderJobs(head: string, goalHtml: string) {
+    const g = this.game;
+    const sd = g.save.data;
+    const tier = getSled(sd.currentSled).tier;
+    const hitch = g.progression.canTow(sd.currentSled);
+    const types = cargoData.types as Record<string, { name: string; massKg: number; fragile: boolean }>;
+    const rows = DELIVERY_JOBS.map((j) => {
+      const a = jobPoint(g, j.from), b = jobPoint(g, j.to);
+      const km = Math.hypot(a.x - b.x, a.z - b.z) / 1000;
+      const counts: Record<string, number> = {};
+      for (const c of j.cargo) counts[c] = (counts[c] ?? 0) + 1;
+      const mass = j.cargo.reduce((m, c) => m + types[c].massKg, 0);
+      const fragile = j.cargo.some((c) => types[c].fragile);
+      const needHitch = j.carry === 'trailer' && !hitch;
+      const lockedTier = tier < j.tier;
+      const rec = sd.delivery.jobs[j.id];
+      const locked = needHitch || lockedTier;
+      return `
+        <button class="course ${locked ? 'locked' : ''}" data-job="${j.id}" ${locked ? 'disabled' : ''}>
+          <div class="course-head"><div class="course-name">${j.name}</div><span class="pay">$${fmt(j.pay)}</span></div>
+          <div class="course-desc">${a.name} → ${b.name} · ${km.toFixed(1)} km · ${fmtTime(j.timeLimit)} limit</div>
+          <div class="course-desc">${j.brief}</div>
+          <div class="chips">${Object.entries(counts).map(([c, n]) => `<span>${n}× ${types[c].name}</span>`).join('')}<span>${Math.round(mass)} kg</span><span>${j.carry === 'trailer' ? 'Trailer' : 'Rear rack'}</span>${fragile ? '<span class="frag">Fragile</span>' : ''}</div>
+          <div class="course-times">${locked ? `<span class="lockmsg">${needHitch ? `Needs a tow hitch (${getPart('hitch-ball')!.name}, Garage › Upgrades › Towing)` : `Needs a tier ${j.tier}+ sled`}</span>` : ''}
+            <span class="pb">${rec ? `Done ${rec.done}× · best $${fmt(rec.bestPay)}${rec.bestTime ? ` · ${fmtTime(rec.bestTime)}` : ''}` : 'Not done yet'}</span></div>
+        </button>`;
+    }).join('');
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Delivery jobs</div><div class="courses">${rows}</div></div>`;
+    this.bindSide();
+    this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-job]').forEach((b) => b.addEventListener('click', () => g.startMode('delivery', b.dataset.job)));
+  }
+
+  private renderEvents(head: string, goalHtml: string) {
+    const g = this.game;
+    const sd = g.save.data;
+    const tier = getSled(sd.currentSled).tier;
+    const rows = SNOCROSS_EVENTS.map((e) => {
+      const rec = sd.snocross[e.id];
+      const locked = tier < e.tier;
+      const ai = getSled(e.aiSled);
+      const best = rec ? (rec.best === 1 ? 'gold' : rec.best === 2 ? 'silver' : rec.best === 3 ? 'bronze' : null) : null;
+      return `
+        <button class="course ${locked ? 'locked' : ''}" data-event="${e.id}" ${locked ? 'disabled' : ''}>
+          <div class="course-head"><div class="course-name">${e.name}</div>${medalIcon(best)}</div>
+          <div class="course-desc">Tier ${e.tier} · ${e.laps} laps · 5 rivals on ${ai.brand} ${ai.model}</div>
+          <div class="chips"><span>1st $${fmt(e.rewards[0])}</span><span>2nd $${fmt(e.rewards[1])}</span><span>3rd $${fmt(e.rewards[2])}</span></div>
+          <div class="course-times">${locked ? `<span class="lockmsg">Needs a tier ${e.tier}+ sled</span>` : ''}<span class="pb">${rec ? `Best ${['', '1st', '2nd', '3rd', '4th', '5th', '6th'][rec.best]} · ${rec.wins} win${rec.wins === 1 ? '' : 's'} in ${rec.races}` : 'Not raced yet'}</span></div>
+        </button>`;
+    }).join('');
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Snocross · Frostpine Arena</div><div class="courses">${rows}</div></div>`;
+    this.bindSide();
+    this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-event]').forEach((b) => b.addEventListener('click', () => g.startMode('snocross', b.dataset.event)));
   }
 
   private bindSide() {

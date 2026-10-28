@@ -12,6 +12,8 @@ export interface FollowOptions {
   cornerAccel?: number;
   /** Extra steering gain. */
   steerGain?: number;
+  /** Ride this far left (+) / right (-) of the centre line (racers spread across the track). */
+  laneOffset?: number;
 }
 
 /** Stretch of route with a speed ceiling (e.g. jumps, rhythm sections). Distances in metres along the route. */
@@ -38,14 +40,17 @@ export class RouteFollower {
     this.idx = r.nearest(p.position, this.idx);
     this.progress = r.cum[this.idx];
     const speed = Math.max(0, p.speed);
-    const look = r.pts[r.indexAt(this.progress + 5 + speed * 0.55)];
-    const to = new THREE.Vector3(look.x - p.position.x, 0, look.z - p.position.z).normalize();
+    const li = r.indexAt(this.progress + 5 + speed * 0.55);
+    const lane = this.opts.laneOffset ?? 0;
+    const look = r.pts[li], ld = r.dirs[li];
+    const tx = look.x - ld.z * lane, tz = look.z + ld.x * lane; // left of travel = (-dz, dx)
+    const to = new THREE.Vector3(tx - p.position.x, 0, tz - p.position.z).normalize();
     const f = new THREE.Vector3(p.forward.x, 0, p.forward.z).normalize();
     const cross = f.x * to.z - f.z * to.x;
     const dot = f.dot(to);
     // pure pursuit + cross-track correction (sideways offset from the line; + = drifted to our left)
     const q = r.pts[this.idx], rd = r.dirs[this.idx];
-    const lateral = (p.position.x - q.x) * rd.z - (p.position.z - q.z) * rd.x;
+    const lateral = (p.position.x - q.x) * rd.z - (p.position.z - q.z) * rd.x - lane;
     let steer = clamp((cross * 2.4 + clamp(lateral, -6, 6) * 0.1) * (this.opts.steerGain ?? 1), -1, 1);
     if (dot < 0) steer = cross >= 0 ? 1 : -1; // facing away: full lock toward the line
 
@@ -56,7 +61,7 @@ export class RouteFollower {
     let gripSoFar = Math.max(0.15, p.surface.grip);
     for (let s = 4; s < 30 + speed * 3; s += 6) {
       const d = this.progress + s;
-      if (d > r.length) break;
+      if (!r.closed && d > r.length) break;
       const q = r.pts[r.indexAt(d)];
       const surf = SURFACES[this.terrain.surfaceAt(q.x, q.z)];
       gripSoFar = Math.min(gripSoFar, Math.max(0.15, surf.grip));
@@ -66,9 +71,12 @@ export class RouteFollower {
       target = Math.min(target, Math.sqrt(vCorner * vCorner + 2 * aBrake * Math.max(0, s - 4)));
     }
     for (const z of this.zones) {
-      if (z.to < this.progress) continue;
+      // distance until the zone starts (0 while inside it); wraps on closed tracks
+      const toStart = r.closed ? r.wrap(z.from - this.progress) : z.from - this.progress;
+      const inside = r.closed ? r.wrap(this.progress - z.from) < z.to - z.from : this.progress >= z.from && this.progress <= z.to;
+      if (!inside && !r.closed && z.to < this.progress) continue;
       const vz = z.maxKmh / 3.6;
-      const ahead = Math.max(0, z.from - this.progress);
+      const ahead = inside ? 0 : Math.max(0, toStart);
       if (ahead > 150) continue;
       target = Math.min(target, Math.sqrt(vz * vz + 2 * 9.81 * gripSoFar * 0.7 * ahead));
     }
@@ -82,6 +90,6 @@ export class RouteFollower {
   }
 
   get finished(): boolean {
-    return this.progress >= this.route.length - 4;
+    return !this.route.closed && this.progress >= this.route.length - 4;
   }
 }

@@ -40,8 +40,27 @@ export class Route {
   readonly cum: number[] = [];
   readonly connectors: Segment[] = [];
   length = 0;
+  /** Closed loops (race tracks) wrap distance and searches around. */
+  closed = false;
+
+  /** A closed loop from pre-sampled points (heights taken from the points, e.g. a raised track surface). */
+  static loop(terrain: TerrainData, points: THREE.Vector3[], width: number): Route {
+    const r = new Route(terrain, []);
+    r.closed = true;
+    for (const p of points) { r.pts.push(p.clone()); r.widths.push(width); }
+    const n = r.pts.length;
+    r.cum.push(0);
+    for (let i = 1; i < n; i++) r.cum.push(r.cum[i - 1] + Math.hypot(r.pts[i].x - r.pts[i - 1].x, r.pts[i].z - r.pts[i - 1].z));
+    r.length = r.cum[n - 1] + Math.hypot(r.pts[0].x - r.pts[n - 1].x, r.pts[0].z - r.pts[n - 1].z);
+    for (let i = 0; i < n; i++) {
+      const a = r.pts[(i - 2 + n) % n], b = r.pts[(i + 2) % n];
+      r.dirs.push(new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize());
+    }
+    return r;
+  }
 
   constructor(private terrain: TerrainData, steps: RouteStep[]) {
+    if (!steps.length) return;
     const raw: { x: number; z: number; w: number }[] = [];
     const last = () => raw[raw.length - 1];
     const line = (bx: number, bz: number, w: number) => {
@@ -118,8 +137,21 @@ export class Route {
     }
   }
 
+  /** Wrap a distance onto [0, length) for closed loops (clamp for open routes). */
+  wrap(dist: number): number {
+    return this.closed ? ((dist % this.length) + this.length) % this.length : THREE.MathUtils.clamp(dist, 0, this.length);
+  }
+
+  /** Signed shortest distance from a to b along a closed loop (b - a for open routes). */
+  delta(a: number, b: number): number {
+    if (!this.closed) return b - a;
+    let d = this.wrap(b - a);
+    if (d > this.length / 2) d -= this.length;
+    return d;
+  }
+
   indexAt(dist: number): number {
-    const d = THREE.MathUtils.clamp(dist, 0, this.length);
+    const d = this.wrap(dist);
     let lo = 0, hi = this.cum.length - 1;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
@@ -130,6 +162,18 @@ export class Route {
 
   /** Closest route index to a position, searching a window around `hint` (or everywhere). */
   nearest(pos: THREE.Vector3, hint = -1, window = 60): number {
+    if (this.closed) {
+      const n = this.pts.length;
+      let bi = Math.max(0, hint), bd = Infinity;
+      const span = hint < 0 ? n : window + 10;
+      for (let k = 0; k < span; k++) {
+        const i = hint < 0 ? k : (hint - 10 + k + n) % n;
+        const q = this.pts[i];
+        const d = (q.x - pos.x) ** 2 + (q.z - pos.z) ** 2;
+        if (d < bd) { bd = d; bi = i; }
+      }
+      return bi;
+    }
     const from = hint < 0 ? 0 : Math.max(0, hint - 10);
     const to = hint < 0 ? this.pts.length - 1 : Math.min(this.pts.length - 1, hint + window);
     let bi = from, bd = Infinity;
@@ -159,6 +203,14 @@ export class Route {
 
   /** Turn sharpness ahead: max heading change per metre over [d0, d1]. */
   curvatureAhead(d0: number, d1: number): number {
+    if (this.closed) {
+      let k = 0;
+      for (let d = d0; d < d1 - 6; d += 4) {
+        const a = this.dirs[this.indexAt(d)], b = this.dirs[this.indexAt(d + 6)];
+        k = Math.max(k, Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1)) / 6);
+      }
+      return k;
+    }
     const i0 = this.indexAt(d0), i1 = this.indexAt(d1);
     let k = 0;
     for (let i = i0; i < i1 - 3; i += 2) {

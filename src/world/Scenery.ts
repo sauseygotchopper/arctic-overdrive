@@ -30,6 +30,7 @@ export class Scenery {
 
   /** Off-trail course corridors are kept free of trees and rocks. */
   private inClearing(x: number, z: number, pad: number): boolean {
+    if ((this.data.def.venues ?? []).some((v) => this.data.venueDistance(v, x, z) < v.margin * 0.6 + pad)) return true;
     for (const c of this.clearings) {
       const vx = c.bx - c.ax, vz = c.bz - c.az;
       const len2 = vx * vx + vz * vz || 1;

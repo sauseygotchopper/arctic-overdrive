@@ -1,5 +1,5 @@
 {
-  "_doc": "Frostpine Valley. World coords in metres, map spans -512..512 on X and Z. Trails are groomed polylines (Catmull-Rom smoothed). Zones paint surfaces on top of the generated base. Jumps are placed along a trail at a fraction of its length and oriented with it.",
+  "_doc": "Frostpine Valley. World coords in metres, map spans -512..512 on X and Z. Trails are groomed polylines (Catmull-Rom smoothed). Zones paint surfaces on top of the generated base. Jumps are placed along a trail at a fraction of its length and oriented with it. Venues are flattened, groomed, tree-free pads (the snocross stadium).",
   "size": 1024,
   "seed": 1337,
   "spawn": {
@@ -274,6 +274,17 @@
       "type": "rollers",
       "height": 0.6,
       "width": 6
+    }
+  ],
+  "venues": [
+    {
+      "id": "frostpine-arena",
+      "x": -60,
+      "z": -185,
+      "rot": 2.36,
+      "halfLength": 95,
+      "halfWidth": 55,
+      "margin": 28
     }
   ]
 }

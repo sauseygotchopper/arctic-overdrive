@@ -20,6 +20,8 @@ export interface SaveData {
   settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; weather: string; camera: string };
   timeTrials: Record<string, { best: number | null; times: number[]; splits: number[]; medals: string[] }>;
   freeride: { crystals: string[]; viewpoints: string[] };
+  delivery: { completed: number; jobs: Record<string, { done: number; bestPay: number; bestTime: number | null }> };
+  snocross: Record<string, { best: number; wins: number; podiums: number; races: number }>;
   tutorialDone: boolean;
   trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string }; ownedParts: string[] };
 }
@@ -38,6 +40,8 @@ export const DEFAULT_SAVE: SaveData = {
   settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase' },
   timeTrials: {},
   freeride: { crystals: [], viewpoints: [] },
+  delivery: { completed: 0, jobs: {} },
+  snocross: {},
   tutorialDone: false,
   trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' }, ownedParts: [] },
 };
@@ -77,6 +81,8 @@ function migrate(parsed: any): SaveData {
     version: 2,
     settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
     freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
+    delivery: { ...DEFAULT_SAVE.delivery, ...parsed.delivery },
+    snocross: parsed.snocross ?? {},
     trailer: {
       ...DEFAULT_SAVE.trailer, ...parsed.trailer,
       upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades },

@@ -25,6 +25,9 @@ export class Progression {
       medals: new Set(Object.entries(this.d.timeTrials).filter(([, r]) => r.medals.length).map(([k]) => k)).size,
       gold: medals.filter((m) => m === 'gold').length,
       crystals: this.d.freeride.crystals.length,
+      deliveries: this.d.delivery.completed,
+      podiums: Object.values(this.d.snocross).reduce((a, r) => a + r.podiums, 0),
+      wins: Object.values(this.d.snocross).reduce((a, r) => a + r.wins, 0),
     };
   }
 
@@ -41,6 +44,9 @@ export class Progression {
     if (u.xp) out.push({ label: 'XP', have: c.xp, need: u.xp });
     if (u.medals) out.push({ label: 'Courses medalled', have: c.medals, need: u.medals });
     if (u.gold) out.push({ label: 'Gold medals', have: c.gold, need: u.gold });
+    if (u.deliveries) out.push({ label: 'Deliveries completed', have: c.deliveries, need: u.deliveries });
+    if (u.podiums) out.push({ label: 'Snocross podiums', have: c.podiums, need: u.podiums });
+    if (u.wins) out.push({ label: 'Snocross wins', have: c.wins, need: u.wins });
     if (u.crystals) out.push({ label: `Frost crystals (of ${freerideData.collectibles.length})`, have: c.crystals, need: u.crystals });
     return out;
   }

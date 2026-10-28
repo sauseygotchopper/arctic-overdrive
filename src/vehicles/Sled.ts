@@ -6,6 +6,7 @@ import { SledModel, SledVisual } from './SledModel';
 import { SledSetup, deriveParams } from './SledSpec';
 import { StuntSystem, TrickControls } from './Tricks';
 import { Trailer } from './Trailer';
+import { CargoItem, CargoType } from './Cargo';
 import tricksData from '../data/tricks.json';
 
 /** A sled in the world: physics body + visual + stunts, optional trailer, with render interpolation. */
@@ -14,6 +15,8 @@ export class Sled {
   readonly visual: SledVisual;
   readonly stunts: StuntSystem;
   trailer: Trailer | null = null;
+  /** Cargo strapped to the rear rack – part of the sled's own mass. */
+  readonly rack: CargoItem[] = [];
   private prevPos = new THREE.Vector3();
   private prevQuat = new THREE.Quaternion();
   flippedTime = 0;
@@ -58,6 +61,31 @@ export class Sled {
   /** Re-apply derived params after setup changes (cargo, parts...). */
   refreshSetup() {
     this.physics.setParams(deriveParams(this.setup));
+  }
+
+  /** Load the rear rack (adds the cargo's mass to the sled). */
+  setRack(types: CargoType[]) {
+    this.rack.length = 0;
+    for (const t of types) this.rack.push(new CargoItem(t));
+    this.syncRack();
+  }
+
+  /** Remove one rack item (e.g. it fell off) and return it. */
+  dropRackItem(item: CargoItem) {
+    const i = this.rack.indexOf(item);
+    if (i >= 0) this.rack.splice(i, 1);
+    this.syncRack();
+  }
+
+  addRackItem(item: CargoItem) {
+    this.rack.push(item);
+    this.syncRack();
+  }
+
+  private syncRack() {
+    this.setup.cargoMass = this.rack.reduce((a, c) => a + c.def.massKg, 0);
+    this.refreshSetup();
+    this.visual.setRack(this.rack.map((c) => c.mesh));
   }
 
   private snapshot() {

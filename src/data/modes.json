@@ -20,8 +20,8 @@
   "modes": [
     { "id": "freeride",  "name": "Freeride",  "tagline": "Open valley. No clock.", "description": "Explore Frostpine Valley, hunt frost crystals, find scenic viewpoints and throw down at trick spots. Change the time of day and weather, then snap it in photo mode.", "available": true },
     { "id": "timeTrial", "name": "Time Trial", "tagline": "Beat the clock. Beat your ghost.", "description": "Checkpoint courses across mixed snow. Race your best-run ghost for bronze, silver and gold.", "available": true },
-    { "id": "delivery",  "name": "Delivery",  "tagline": "Haul it. Don't break it.", "description": "Pick up cargo and deliver it to remote cabins against the clock.", "available": false, "comingIn": "Phase 5" },
-    { "id": "snocross",  "name": "Snocross",  "tagline": "Six sleds. One holeshot.", "description": "Race five AI riders around a closed jump track.", "available": false, "comingIn": "Phase 5" },
+    { "id": "delivery",  "name": "Delivery",  "tagline": "Haul it. Don't break it.", "description": "Pick up cargo and deliver it to remote cabins against the clock.", "available": true },
+    { "id": "snocross",  "name": "Snocross",  "tagline": "Six sleds. One holeshot.", "description": "Race five AI riders around Frostpine Arena: berms, tabletops, a double, whoops and a rhythm section. Faster sleds, faster rivals.", "available": true },
     { "id": "special",   "name": "Special Delivery", "tagline": "Don't stop. Don't get boxed in.", "description": "Carry a suspicious package while federal agents give chase.", "available": false, "comingIn": "Phase 6" }
   ]
 }

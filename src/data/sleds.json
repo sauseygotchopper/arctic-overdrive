@@ -1,5 +1,5 @@
 {
-  "_doc": "Base sled specs, one per tier, each modelled on a real-world class. Lengths in metres unless suffixed In (inches, as tracks are sold). springRate/damping multiply the derived suspension; hardGrip scales lateral grip on ice/crust (mountain sleds are twitchy there). unlock = progress needed before the sled can be bought (price is separate). style picks model details.",
+  "_doc": "Base sled specs, one per tier, each modelled on a real-world class. Lengths in metres unless suffixed In (inches, as tracks are sold). springRate/damping multiply the derived suspension; hardGrip scales lateral grip on ice/crust (mountain sleds are twitchy there). unlock = progress needed before the sled can be bought (price is separate). style picks model details. unlock may also use deliveries (completed jobs), podiums and wins (snocross).",
   "starter": "nordvik-trail-600",
   "sleds": [
     {
@@ -33,7 +33,12 @@
       "durability": 0.65,
       "dragArea": 0.82,
       "maxPartTier": 2,
-      "colors": { "body": "#2f7fd6", "accent": "#f2f4f7", "seat": "#22252b", "ski": "#16181d" }
+      "colors": {
+        "body": "#2f7fd6",
+        "accent": "#f2f4f7",
+        "seat": "#22252b",
+        "ski": "#16181d"
+      }
     },
     {
       "id": "ravik-crossfire-850",
@@ -44,7 +49,10 @@
       "reference": "~850cc 2-stroke crossover, 137in x 1.6in track, ~160 hp",
       "style": "crossover",
       "price": 14500,
-      "unlock": { "xp": 1500, "medals": 1 },
+      "unlock": {
+        "xp": 1500,
+        "medals": 1
+      },
       "powerKW": 120,
       "peakRpm": 7900,
       "idleRpm": 1800,
@@ -66,7 +74,12 @@
       "durability": 0.7,
       "dragArea": 0.85,
       "maxPartTier": 3,
-      "colors": { "body": "#e8432e", "accent": "#16181d", "seat": "#22252b", "ski": "#16181d" }
+      "colors": {
+        "body": "#e8432e",
+        "accent": "#16181d",
+        "seat": "#22252b",
+        "ski": "#16181d"
+      }
     },
     {
       "id": "altamont-summit-165",
@@ -77,7 +90,11 @@
       "reference": "~850cc long-track mountain sled, 165in x 3.0in track, narrow stance, ~165 hp",
       "style": "mountain",
       "price": 19500,
-      "unlock": { "xp": 4000, "medals": 3, "crystals": 6 },
+      "unlock": {
+        "xp": 4000,
+        "medals": 2,
+        "deliveries": 3
+      },
       "powerKW": 122,
       "peakRpm": 7900,
       "idleRpm": 1800,
@@ -99,7 +116,12 @@
       "durability": 0.7,
       "dragArea": 0.9,
       "maxPartTier": 3,
-      "colors": { "body": "#7ac943", "accent": "#16181d", "seat": "#22252b", "ski": "#2b2f36" }
+      "colors": {
+        "body": "#7ac943",
+        "accent": "#16181d",
+        "seat": "#22252b",
+        "ski": "#2b2f36"
+      }
     },
     {
       "id": "kestrel-sxr-600",
@@ -110,7 +132,11 @@
       "reference": "600cc snocross race sled, 121in x 1.25in track, stiff long-travel suspension, ~125 hp",
       "style": "race",
       "price": 22500,
-      "unlock": { "xp": 7000, "gold": 2 },
+      "unlock": {
+        "xp": 7000,
+        "gold": 2,
+        "podiums": 1
+      },
       "powerKW": 93,
       "peakRpm": 8300,
       "idleRpm": 1900,
@@ -132,7 +158,12 @@
       "durability": 0.85,
       "dragArea": 0.8,
       "maxPartTier": 4,
-      "colors": { "body": "#f6c400", "accent": "#16181d", "seat": "#16181d", "ski": "#16181d" }
+      "colors": {
+        "body": "#f6c400",
+        "accent": "#16181d",
+        "seat": "#16181d",
+        "ski": "#16181d"
+      }
     },
     {
       "id": "overdrive-turbo-build",
@@ -143,7 +174,12 @@
       "reference": "Hand-built 850 turbo on a reinforced 146in x 1.8in chassis, ~190 hp stock, built to be modded",
       "style": "turbo",
       "price": 36000,
-      "unlock": { "xp": 12000, "gold": 3, "crystals": 12 },
+      "unlock": {
+        "xp": 12000,
+        "gold": 3,
+        "crystals": 12,
+        "wins": 2
+      },
       "powerKW": 142,
       "peakRpm": 8000,
       "idleRpm": 1900,
@@ -165,8 +201,15 @@
       "durability": 0.9,
       "dragArea": 0.84,
       "maxPartTier": 5,
-      "colors": { "body": "#16181d", "accent": "#ff5a1f", "seat": "#16181d", "ski": "#ff5a1f" }
+      "colors": {
+        "body": "#16181d",
+        "accent": "#ff5a1f",
+        "seat": "#16181d",
+        "ski": "#ff5a1f"
+      }
     }
   ],
-  "rider": { "massKg": 82 }
+  "rider": {
+    "massKg": 82
+  }
 }
