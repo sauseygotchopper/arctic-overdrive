@@ -18,7 +18,7 @@ const FEATURES: { kind: Feature['kind']; from: number; to: number; length: numbe
   { kind: 'tabletop', from: 0, to: 2, length: 23, maxKmh: 52 },
   { kind: 'double', from: 5, to: 7, length: 27, maxKmh: 55 },
   { kind: 'rhythm', from: 9, to: 11, length: 30, maxKmh: 44 },
-  { kind: 'whoops', from: 12, to: 14, length: 33, maxKmh: 55 },
+  { kind: 'whoops', from: 12, to: 14, length: 33.6, maxKmh: 60 },
 ];
 
 /** Height profile (m) of a feature at distance x into it. */
@@ -38,7 +38,7 @@ function featureHeight(f: Feature, x: number): number {
       return 1.3 * (1 - smoothstep(19, 27, x));
     }
     case 'whoops': // short bumps you skim across at speed
-      return 0.38 * 0.5 * (1 - Math.cos((x / 5.5) * Math.PI * 2)) * smoothstep(0, 2, x) * smoothstep(f.length, f.length - 2, x);
+      return 0.24 * 0.5 * (1 - Math.cos((x / 4.8) * Math.PI * 2)) * smoothstep(0, 2, x) * smoothstep(f.length, f.length - 2, x);
     case 'rhythm': // three rollers
       return 0.8 * 0.5 * (1 - Math.cos((x / 10) * Math.PI * 2));
   }

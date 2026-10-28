@@ -15,6 +15,7 @@ interface Racer {
   number: number;
   sled: Sled;
   ai: RaceAI | null;
+  basePower: number;
   idx: number;
   rel: number; // metres past the start line this lap
   crossings: number;
@@ -59,7 +60,7 @@ export class Snocross implements GameMode {
       if (i === playerSlot) continue;
       const r = riders[ai];
       const skill = Math.min(1, this.ev.aiSkill + (ai - 2) * 0.025); // a little spread across the field
-      const sled = new Sled(g.physics, g.terrain, { spec, riderMass: RIDER_MASS, cargoMass: 0, parts: [], livery: { ...DEFAULT_LIVERY, paint: r.paint, gear: r.gear, number: r.number } }, slots[i].pos, slots[i].yaw);
+      const sled = new Sled(g.physics, g.terrain, { spec, riderMass: RIDER_MASS, cargoMass: 0, parts: this.ev.aiParts ?? [], livery: { ...DEFAULT_LIVERY, paint: r.paint, gear: r.gear, number: r.number } }, slots[i].pos, slots[i].yaw);
       g.scene.add(sled.visual.root);
       const lane = ((i % 3) - 1) * 2.4;
       this.racers.push(this.newRacer(r.name, r.number, sled, new RaceAI(sled, this.track.route, g.terrain, skill, this.track.zones, lane)));
@@ -70,7 +71,7 @@ export class Snocross implements GameMode {
   }
 
   private newRacer(name: string, number: number, sled: Sled, ai: RaceAI | null): Racer {
-    return { name, number, sled, ai, idx: 0, rel: 0, crossings: 0, halfway: false, lapStart: 0, bestLap: Infinity, finishTime: null };
+    return { name, number, sled, ai, basePower: sled.physics.params.powerW, idx: 0, rel: 0, crossings: 0, halfway: false, lapStart: 0, bestLap: Infinity, finishTime: null };
   }
 
   private reset() {
@@ -146,8 +147,14 @@ export class Snocross implements GameMode {
   prePhysics(dt: number) {
     const racing = this.state === 'racing';
     if (racing) this.avoidTraffic();
+    const L = this.track.route.length;
+    const mine = this.player.crossings * L + this.player.rel;
     for (const r of this.racers) {
       if (!r.ai) continue;
+      // a little extra power when well behind you, so the pack doesn't fade away
+      const behind = mine - (r.crossings * L + r.rel);
+      const boost = racing ? THREE.MathUtils.clamp(behind / snocrossData.catchUpGap, 0, 1) * snocrossData.catchUp : 0;
+      r.sled.physics.params.powerW = r.basePower * (1 + boost);
       // finished AI riders cruise on
       const input = r.ai.control(dt, racing || this.state === 'done');
       r.sled.fixedUpdate(dt, r.finishTime ? { ...input, throttle: Math.min(input.throttle, 0.4) } : input);
