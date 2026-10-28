@@ -30,6 +30,18 @@ touchdown or it's a crash. Tricks chain into a combo (×1 per trick); a clean la
 open for 2 s so you can chain the next jump, a sketchy landing banks 75%, a crash loses it.
 Heavier setups pop lower and rotate slower (air torques are fixed, inertia comes from mass).
 
+### Handling & snow
+Tuning for the arcade feel lives in `src/data/handling.json`: suspension damping (extra rebound
+damping stops the rear bucking), slip curves (skis/track grip up to a peak slip angle then slide;
+throttle or braking uses up the track's grip so the rear steps out), body position (lean into a
+turn for bite, counter-lean to lose it; side lean steers by itself in powder; lean forward to load
+the skis, back for traction and to keep the nose up), landing assist and the bog model (snow drag
+fades near standstill so a heavy rig crawls instead of stopping; wheelspin digs the track in).
+
+Every ski, track and trailer runner stamps a persistent rut into a GPU deformation texture
+(0.25 m resolution on high quality) that the terrain shader shades as real grooves. A matching
+packed-snow grid feeds back into physics: riding in an existing rut sinks less.
+
 ### Trailer
 `H` hitches the Haulmaster utility trailer (spherical hitch joint + soft yaw/pitch/roll limits).
 Cargo adds mass and raises the trailer's centre of gravity: slower acceleration, longer braking,
@@ -45,7 +57,7 @@ heavy-duty shocks, wide powder skis, ratchet straps / cargo net. From the consol
 - `src/physics` — Rapier world, terrain heightfield, surface definitions
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
 - `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, sky, effects
-- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `trailers.json`, `cargo.json`
+- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `trailers.json`, `cargo.json`
 
 ## Debugging
 - `__game.simulate(seconds, { throttle: 1, steer: 0.5 }, { jump: true })` — deterministic physics steps.

@@ -40,6 +40,8 @@ export class TerrainData {
   readonly trailPaths: TrailPath[] = [];
   readonly noise: Noise2D;
   readonly lakeLevels: number[] = [];
+  /** Snow already compressed by tracks (m of depth, 1 m cells). Written by SnowDeformation. */
+  readonly packed: Float32Array;
 
   constructor(readonly def: WorldDef) {
     this.size = def.size;
@@ -52,6 +54,7 @@ export class TerrainData {
     this.surface = new Uint8Array(this.sCells * this.sCells);
     this.trailDist = new Float32Array(this.sCells * this.sCells).fill(BIG);
     this.trailH = new Float32Array(this.sCells * this.sCells);
+    this.packed = new Float32Array(this.sCells * this.sCells);
 
     this.buildTrails();
     for (const lake of def.lakes) this.lakeLevels.push(this.lowHeight(lake.x, lake.z) - 12);
@@ -252,6 +255,19 @@ export class TerrainData {
     const cx = clamp(Math.floor(x + this.half), 0, this.sCells - 1);
     const cz = clamp(Math.floor(z + this.half), 0, this.sCells - 1);
     return this.surface[cz * this.sCells + cx];
+  }
+
+  packedAt(x: number, z: number): number {
+    const cx = Math.floor(x + this.half), cz = Math.floor(z + this.half);
+    if (cx < 0 || cz < 0 || cx >= this.sCells || cz >= this.sCells) return 0;
+    return this.packed[cz * this.sCells + cx];
+  }
+
+  pack(x: number, z: number, depth: number) {
+    const cx = Math.floor(x + this.half), cz = Math.floor(z + this.half);
+    if (cx < 0 || cz < 0 || cx >= this.sCells || cz >= this.sCells) return;
+    const i = cz * this.sCells + cx;
+    if (depth > this.packed[i]) this.packed[i] = depth;
   }
 
   trailDistanceAt(x: number, z: number): number {

@@ -7,6 +7,7 @@ import { Scenery } from '../world/Scenery';
 import { Jumps, JumpDef } from '../world/Jumps';
 import { SkySystem, TimeOfDay } from '../world/Sky';
 import { Effects } from '../world/Effects';
+import { SnowDeformation, DEFORM_DEPTH } from '../world/SnowDeformation';
 import { Sled } from '../vehicles/Sled';
 import { getSled, RIDER_MASS } from '../vehicles/SledSpec';
 import { DriveInput } from '../vehicles/SledPhysics';
@@ -36,6 +37,7 @@ export class Game {
   player!: Sled;
   jumps!: Jumps;
   loose!: LooseCargo;
+  snow!: SnowDeformation;
   readonly dev = new DevTools(this);
   private scenery!: Scenery;
   private loadIndex = 1;
@@ -67,7 +69,13 @@ export class Game {
     await step('Shaping the valley…', 0.15);
     this.terrain = new TerrainData(worldDef as unknown as WorldDef);
     await step('Laying down snow…', 0.45);
-    this.scene.add(new TerrainMesh(this.terrain, q).group);
+    const terrainMesh = new TerrainMesh(this.terrain, q);
+    this.scene.add(terrainMesh.group);
+    const defRes = q === 'high' ? 4096 : q === 'medium' ? 2048 : 1024;
+    this.snow = new SnowDeformation(this.renderer, this.terrain, defRes);
+    terrainMesh.deformUniforms.deformMap.value = this.snow.target.texture;
+    terrainMesh.deformUniforms.deformTexel.value = 1 / defRes;
+    terrainMesh.deformUniforms.deformSlope.value = DEFORM_DEPTH / (2 * (this.terrain.size / defRes));
     this.physics.addTerrain(this.terrain);
     const err = this.physics.verifyTerrain(this.terrain);
     if (err > 0.5) console.warn(`[terrain] physics/visual height mismatch ${err.toFixed(2)} m`);
@@ -156,6 +164,11 @@ export class Game {
     for (let i = 0; i < n; i++) {
       this.player.fixedUpdate(PHYSICS_DT, d, tc);
       this.physics.step();
+      if (i % 2 === 0) {
+        this.snow.stampSled(this.player);
+        if (this.player.trailer) this.snow.stampTrailer(this.player.trailer);
+        this.snow.flush();
+      }
     }
     this.player.physics.readState();
     this.processEvents();
@@ -252,7 +265,11 @@ export class Game {
       // auto-recover when left upside down
       if (this.player.flippedTime > 4) this.player.recover();
       this.effects.emitFromSled(this.player, dt);
-      if (this.player.trailer) this.effects.emitFromTrailer(this.player.trailer, dt);
+      this.snow.stampSled(this.player);
+      if (this.player.trailer) {
+        this.effects.emitFromTrailer(this.player.trailer, dt);
+        this.snow.stampTrailer(this.player.trailer);
+      }
     }
     this.player.render(this.paused ? 1 : this.acc / PHYSICS_DT, this.paused ? 0 : dt);
     this.loose.sync();
@@ -261,6 +278,7 @@ export class Game {
     this.sky.follow(this.player.visual.root.position);
     this.hud.update(this.player, dt);
     input.endFrame();
+    this.snow.flush();
     this.renderer.render(this.scene, this.camera);
   }
 }

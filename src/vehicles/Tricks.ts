@@ -164,7 +164,7 @@ export class StuntSystem {
     const align = p.up.dot(p.groundNormal);
     const impact = Math.max(0, -p.velocity.dot(p.groundNormal));
     const maxImpact = L.maxImpactBase + (p.params.travelFront + p.params.travelRear) * L.impactPerTravel;
-    const posing = this.rider.poseAmount > 0.25;
+    const posing = this.rider.poseAmount > L.poseCrashAmount;
 
     let quality: LandingQuality = 'clean';
     if (posing || align < L.sketchyAlign || impact > maxImpact * 1.3) quality = 'crash';

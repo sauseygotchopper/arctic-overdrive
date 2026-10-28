@@ -1,0 +1,41 @@
+{
+  "_doc": "Arcade/handling tuning for SledPhysics. Lower assist numbers = more simulation, higher = more arcade.",
+  "suspension": {
+    "zetaFront": 0.55,
+    "zetaRear": 0.62,
+    "reboundMult": 1.9,
+    "_reboundMult": "extra damping while the spring extends – stops the rear kicking back up after bumps/landings"
+  },
+  "slip": {
+    "skiPeakDeg": 6,
+    "trackPeakDeg": 10,
+    "slideRatio": 0.7,
+    "lowSpeedGrip": 2.5,
+    "_doc": "lateral force rises with slip angle to a peak, then falls to slideRatio × peak while sliding; below lowSpeedGrip m/s sideways creep is simply stopped"
+  },
+  "lean": {
+    "comShift": 2.6,
+    "carveGrip": 0.5,
+    "counterLeanPenalty": 0.3,
+    "leanSteerHard": 0.1,
+    "leanSteerPowder": 0.38,
+    "forwardSkiGrip": 0.4,
+    "backTraction": 0.18,
+    "forwardSkiSink": 0.6,
+    "rollTargetRad": 0.38,
+    "_doc": "Side lean steers the sled by itself in soft snow (leanSteerPowder rad of equivalent steer) and adds ski bite when leaning into a turn; forward lean loads the skis (more steering, more nose-dig in powder), back lean adds track traction and lifts the nose"
+  },
+  "assist": {
+    "yawAssist": 3.5,
+    "rollStiffness": 12,
+    "rollDamping": 2.4,
+    "landingAssist": 2600,
+    "landingRange": 4.0,
+    "_doc": "landingAssist torques the sled toward the ground normal as it comes down (fades with distance and with active flip/spin input)"
+  },
+  "bog": {
+    "crawlFactor": 0.08,
+    "digPerSlip": 0.45,
+    "_doc": "Snow drag fades toward crawlFactor near standstill so an overloaded sled bogs down and crawls instead of stopping dead; wheelspin in soft snow digs the track in by digPerSlip × sinkDepth"
+  }
+}

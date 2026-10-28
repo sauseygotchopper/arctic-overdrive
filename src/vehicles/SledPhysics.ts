@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { PhysicsWorld, GRAVITY } from '../physics/PhysicsWorld';
 import { SURFACES, SurfaceDef, sinkTarget, sinkDragForce } from '../physics/Surfaces';
 import tricksData from '../data/tricks.json';
+import H from '../data/handling.json';
 import { TerrainData } from '../world/TerrainData';
 import { SledParams } from './SledSpec';
 import { clamp, lerp, smoothstep } from '../world/Noise';
@@ -105,8 +106,8 @@ export class SledPhysics {
       .setCcdEnabled(true);
     this.body = phys.world.createRigidBody(desc);
     // chassis: tunnel + hood volume. Mass comes from setAdditionalMassProperties, so density 0.
-    phys.world.createCollider(R.ColliderDesc.cuboid(0.5, 0.22, 1.35).setTranslation(0, 0.27, 0.05).setDensity(0).setFriction(0.25).setRestitution(0.05), this.body);
-    phys.world.createCollider(R.ColliderDesc.cuboid(0.32, 0.25, 0.3).setTranslation(0, 0.65, -0.55).setDensity(0).setFriction(0.3), this.body); // seat/rider hip
+    phys.world.createCollider(R.ColliderDesc.cuboid(0.46, 0.18, 1.3).setTranslation(0, 0.42, 0.05).setDensity(0).setFriction(0.08).setRestitution(0.02), this.body);
+    phys.world.createCollider(R.ColliderDesc.cuboid(0.32, 0.25, 0.3).setTranslation(0, 0.75, -0.55).setDensity(0).setFriction(0.2), this.body); // seat/rider hip
     this.ray = new R.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     this.setParams(params);
   }
@@ -128,12 +129,12 @@ export class SledPhysics {
       };
     };
     const hs = p.stance / 2;
-    this.contacts.push(mk(hs, 1.08, true, p.travelFront, frontLoad / 2, p.springZetaFront));
-    this.contacts.push(mk(-hs, 1.08, true, p.travelFront, frontLoad / 2, p.springZetaFront));
+    this.contacts.push(mk(hs, 1.08, true, p.travelFront, frontLoad / 2, H.suspension.zetaFront));
+    this.contacts.push(mk(-hs, 1.08, true, p.travelFront, frontLoad / 2, H.suspension.zetaFront));
     const tw = p.trackWidth * 0.38;
     const zf = 0.2;
     const zr = zf - p.trackContactLen;
-    for (const z of [zf, zr]) for (const x of [tw, -tw]) this.contacts.push(mk(x, z, false, p.travelRear, rearLoad / 4, p.springZetaRear));
+    for (const z of [zf, zr]) for (const x of [tw, -tw]) this.contacts.push(mk(x, z, false, p.travelRear, rearLoad / 4, H.suspension.zetaRear));
     this.hitchLocal.set(0, 0.1, zr - 0.42); // matches the hitch block on the model's rear bumper
     this.massDirty = true;
   }
@@ -175,10 +176,11 @@ export class SledPhysics {
   /** Bad landing: dump speed and lock the throttle while the rider gathers themselves. */
   crash() {
     const v = this.body.linvel();
-    this.body.setLinvel({ x: v.x * 0.4, y: v.y * 0.4, z: v.z * 0.4 }, true);
+    const k = tricksData.landing.crashSpeedKeep;
+    this.body.setLinvel({ x: v.x * k, y: v.y * 0.4, z: v.z * k }, true);
     const w = this.body.angvel();
     this.body.setAngvel({ x: w.x * 0.3, y: w.y * 0.3, z: w.z * 0.3 }, true);
-    this.crashTimer = 1.6;
+    this.crashTimer = tricksData.landing.crashLockSeconds;
   }
 
   /** Hard (but survivable) landing scrubs horizontal speed. */
@@ -217,7 +219,7 @@ export class SledPhysics {
     this.leanZS += (input.leanZ - this.leanZS) * Math.min(1, dt * 6);
     if (Math.abs(lx - this.leanXS) + Math.abs(lz - this.leanZS) > 0.01 || this.massDirty) {
       // rider is ~25% of the mass and moves ~0.35 m: shift the COM accordingly
-      const riderFrac = clamp(82 / p.mass, 0.15, 0.4) * 1.6;
+      const riderFrac = clamp(82 / p.mass, 0.15, 0.4) * H.lean.comShift;
       this.comOffset.set(-this.leanXS * 0.35 * riderFrac, 0, this.leanZS * 0.4 * riderFrac);
       this.updateMass();
     }
@@ -253,8 +255,11 @@ export class SledPhysics {
 
       // sinking: slow + heavy + small footprint sinks deeper; speed planes you up
       let sinkT = sinkTarget(s, absV, p.flotation, c.load > 0 ? c.load / c.nominalLoad : 1);
-      if (!c.isSki && c.slip > 0.5 && s.sinkDepth > 0.1) sinkT += s.sinkDepth * 0.3 * (c.slip - 0.5); // trenching from wheelspin
-      sinkT = Math.min(sinkT, s.sinkDepth * 1.4);
+      // riding in an existing rut: that snow is already packed down
+      sinkT *= 1 - 0.75 * clamp(this.terrain.packedAt(c.hitPoint.x, c.hitPoint.z) / (s.sinkDepth + 0.02), 0, 1);
+      if (c.isSki) sinkT *= 1 + H.lean.forwardSkiSink * this.leanZS; // nose digs in when leaning forward, floats when leaning back
+      if (!c.isSki && c.slip > 0.3 && s.sinkDepth > 0.1) sinkT += s.sinkDepth * H.bog.digPerSlip * (c.slip - 0.3); // wheelspin trenches the track
+      sinkT = clamp(sinkT, 0, s.sinkDepth * 1.4);
       c.sink += (sinkT - c.sink) * Math.min(1, dt * (sinkT > c.sink ? 2.2 : 4));
 
       const bump = s.roughness > 0 ? s.roughness * bumpNoise(c.hitPoint.x, c.hitPoint.z) : 0;
@@ -267,7 +272,8 @@ export class SledPhysics {
       nAvg.x += n.x; nAvg.y += n.y; nAvg.z += n.z;
 
       const compVel = (c.compression - c.prevCompression) / dt;
-      let F = c.k * comp + c.c * compVel;
+      // stiffer rebound than compression so the rear doesn't buck back up after a hit
+      let F = c.k * comp + c.c * compVel * (compVel < 0 ? H.suspension.reboundMult : 1);
       if (comp > c.travel) F += c.k * 10 * (comp - c.travel) + c.c * 2 * Math.max(0, compVel); // bump stop
       F = Math.max(0, F);
       c.load = F;
@@ -323,6 +329,8 @@ export class SledPhysics {
     const mEff = p.mass / Math.max(1, grounded);
     let slipSum = 0;
     let surfCap = 0;
+    const steerSign = Math.sign(this.steerS) || 0;
+    const leanInto = clamp(this.leanXS * steerSign, -1, 1); // + leaning into the turn, - counter-leaning
     for (const c of this.contacts) {
       if (!c.grounded) { c.slip = trackGrounded === 0 && !c.isSki ? 1 : 0; continue; }
       const s = c.surface;
@@ -337,44 +345,49 @@ export class SledPhysics {
       const vLat = vp.x * _r.x + vp.y * _r.y + vp.z * _r.z;
       const vLong = vp.x * _f.x + vp.y * _f.y + vp.z * _f.z;
       const N = c.load;
-
-      // lateral: kill sideways velocity up to the friction limit
-      let latMu = s.lateralGrip * (c.isSki ? 0.85 + p.handling * 0.35 : 0.9);
-      if (c.isSki) {
-        // leaning into the turn makes the inside ski bite (carving)
-        const carve = clamp(this.leanXS * Math.sign(this.steerS || 1), 0, 1);
-        latMu *= 1 + carve * 0.35;
-      }
-      const latNeed = -vLat * mEff;
-      const latMax = latMu * N * dt;
-      const latJ = clamp(latNeed, -latMax, latMax);
-      // apply lateral force near roll centre (not at the snow) so the sled doesn't trip over itself
+      const softness = smoothstep(0.05, 0.3, s.sinkDepth);
+      // apply forces near the roll centre (not at the snow) so the sled doesn't trip over itself
       const ap = _v.copy(pt).lerp(this.position, 0.55);
-      body.applyImpulseAtPoint(scale(_r, latJ), ap, true);
 
-      // longitudinal: drive (track), brake, rolling + sink drag
+      // ---- longitudinal first (track), so the friction circle knows what's left for cornering ----
       let longF = 0;
-      const sinkDrag = sinkDragForce(s, c.sink, N, vLong);
-      const roll = (s.rollingDrag + (c.isSki ? 0 : (s.sinkDepth < 0.1 ? p.hardpackDrag : 0))) * N + sinkDrag;
+      let longUsed = 0;
+      const mu = s.grip * lerp(1, p.powderTraction, softness) * (c.isSki ? 1 : 1 + H.lean.backTraction * -this.leanZS);
       if (!c.isSki) {
         const share = trackLoad > 0 ? N / trackLoad : 0;
-        const softness = smoothstep(0.05, 0.3, s.sinkDepth);
-        const mu = s.grip * lerp(1, p.powderTraction, softness);
         const cap = mu * N;
         const want = driveF * share;
         const applied = clamp(want, -cap, cap);
         c.slip = cap > 0 ? clamp((Math.abs(want) - cap) / cap, 0, 1) : 1;
         slipSum += c.slip;
         longF += applied;
-        // brakes act on the track/driveshaft
+        longUsed += Math.abs(applied);
         if (input.brake > 0 && !this.reversing) {
           const bF = Math.min(input.brake * p.mass * 7 * share, mu * N);
-          longF -= Math.sign(vLong) * Math.min(bF, (Math.abs(vLong) * mEff) / dt);
+          const bApplied = Math.min(bF, (Math.abs(vLong) * mEff) / dt);
+          longF -= Math.sign(vLong) * bApplied;
+          longUsed += bApplied;
         }
       }
-      const rollF = Math.min(roll, (Math.abs(vLong) * mEff) / dt);
-      longF -= Math.sign(vLong) * rollF;
+      const roll = (s.rollingDrag + (c.isSki ? 0 : (s.sinkDepth < 0.1 ? p.hardpackDrag : 0))) * N + sinkDragForce(s, c.sink, N, vLong);
+      longF -= Math.sign(vLong) * Math.min(roll, (Math.abs(vLong) * mEff) / dt);
       body.applyImpulseAtPoint(scale(_f, longF * dt), ap, true);
+
+      // ---- lateral: slip-angle curve (grip builds, peaks, then slides) ----
+      let latMu = s.lateralGrip * (c.isSki ? 0.85 + p.handling * 0.35 : 0.9);
+      if (c.isSki) {
+        latMu *= leanInto >= 0 ? 1 + leanInto * H.lean.carveGrip : 1 + leanInto * H.lean.counterLeanPenalty;
+        latMu *= 1 + H.lean.forwardSkiGrip * this.leanZS; // weight on the skis = more bite
+      }
+      let latCap = latMu * N;
+      if (!c.isSki) latCap = Math.sqrt(Math.max(0, latCap * latCap - longUsed * longUsed * 0.8)); // spinning/braking track lets the rear step out
+      const slipAngle = Math.atan2(Math.abs(vLat), Math.max(Math.abs(vLong), 1));
+      const peak = THREE.MathUtils.degToRad(c.isSki ? H.slip.skiPeakDeg : H.slip.trackPeakDeg);
+      const curve = slipAngle < peak ? slipAngle / peak : lerp(1, H.slip.slideRatio, smoothstep(peak, peak * 3, slipAngle));
+      const k = Math.abs(vLat) < H.slip.lowSpeedGrip && Math.abs(vLong) < 3 ? 1 : curve;
+      const latJ = -Math.sign(vLat) * Math.min(Math.abs(vLat) * mEff, latCap * k * dt);
+      if (!c.isSki) c.slip = Math.max(c.slip, smoothstep(peak, peak * 3, slipAngle) * 0.6); // sideways slide sprays too
+      body.applyImpulseAtPoint(scale(_r, latJ), ap, true);
     }
     this.trackSlip = trackGrounded > 0 ? slipSum / trackGrounded : 1;
     this.trackSpeed += ((trackGrounded > 0 ? vLongBody + this.trackSlip * 15 * Math.sign(driveF || 1) : thr * 25) - this.trackSpeed) * Math.min(1, dt * 6);
@@ -397,17 +410,20 @@ export class SledPhysics {
     if (grounded >= 3) {
       // steering assist toward the bicycle-model yaw rate, limited by front-ski grip
       const frontGrip = (this.contacts[0].surface.lateralGrip + this.contacts[1].surface.lateralGrip) / 2;
-      const desiredYaw = (-vLongBody * Math.tan(this.steerAngle)) / 1.6;
+      // side lean steers by itself – a little on hardpack, a lot in powder where sleds are ridden on edge
+      const soft = smoothstep(0.05, 0.3, this.surface.sinkDepth);
+      const leanSteer = this.leanXS * lerp(H.lean.leanSteerHard, H.lean.leanSteerPowder, soft);
+      const desiredYaw = (-vLongBody * Math.tan(clamp(this.steerAngle + leanSteer, -0.7, 0.7))) / 1.6;
       const yawNow = angVel.dot(this.up);
       const towK = p.mass / (p.mass + this.towMass * 1.6); // a trailer resists rotation: wider turns
-      const yawT = (desiredYaw - yawNow) * I * 3.5 * towK * clamp(frontGrip * 1.3, 0.15, 1) * smoothstep(0.5, 4, absV);
+      const yawT = (desiredYaw - yawNow) * I * H.assist.yawAssist * towK * clamp(frontGrip * 1.3, 0.15, 1) * smoothstep(0.5, 4, absV);
       // self-righting toward the ground normal, tilted by side lean (sidehilling / carving)
-      _q.setFromAxisAngle(this.forward, -this.leanXS * 0.32);
+      _q.setFromAxisAngle(this.forward, -this.leanXS * H.lean.rollTargetRad);
       const desiredUp = _v.copy(nAvg).applyQuaternion(_q);
       const rightAxis = _v2.crossVectors(this.up, desiredUp);
       const rollAxisAmt = rightAxis.dot(this.forward);
       const rollRate = angVel.dot(this.forward);
-      const rollT = (rollAxisAmt * 9 - rollRate * 1.6) * I;
+      const rollT = (rollAxisAmt * H.assist.rollStiffness - rollRate * H.assist.rollDamping) * I;
       const torque = new THREE.Vector3()
         .addScaledVector(this.up, yawT)
         .addScaledVector(this.forward, rollT);
@@ -437,6 +453,22 @@ export class SledPhysics {
       const rollRate = w.x * this.forward.x + w.y * this.forward.y + w.z * this.forward.z;
       t.addScaledVector(this.up, -yawRate * air.spinCheck * (1 - Math.abs(this.steerS)) * k);
       t.addScaledVector(this.forward, -rollRate * air.spinCheck * (1 - Math.abs(this.leanXS)) * k);
+      // arcade landing assist: coming down near the ground, rotate toward the slope you'll land on
+      if (this.velocity.y < 0) {
+        this.ray.origin = this.position;
+        this.ray.dir = { x: 0, y: -1, z: 0 };
+        const g = world.castRayAndGetNormal(this.ray, H.assist.landingRange, true, undefined, undefined, undefined, body);
+        if (g) {
+          const near = 1 - g.timeOfImpact / H.assist.landingRange;
+          const busy = clamp(Math.abs(pitchIn) + Math.abs(this.steerS), 0, 1);
+          const axis = new THREE.Vector3().crossVectors(this.up, new THREE.Vector3(g.normal.x, g.normal.y, g.normal.z));
+          axis.addScaledVector(this.up, -axis.dot(this.up)); // pitch/roll only, never yaw
+          const w2 = new THREE.Vector3(body.angvel().x, body.angvel().y, body.angvel().z);
+          w2.addScaledVector(this.up, -w2.dot(this.up));
+          t.addScaledVector(axis, H.assist.landingAssist * near * (1 - 0.7 * busy));
+          t.addScaledVector(w2, -H.assist.landingAssist * 0.18 * near * (1 - 0.7 * busy));
+        }
+      }
       body.applyTorqueImpulse(scale(t, dt), true);
     }
     body.setAngularDamping(grounded === 0 ? 0.15 : 0.6);

@@ -12,6 +12,12 @@ const CHUNKS = 8;
 export class TerrainMesh {
   readonly group = new THREE.Group();
   readonly material: THREE.MeshStandardMaterial;
+  /** Snow deformation hookup (SnowDeformation renders into deformMap). */
+  readonly deformUniforms = {
+    deformMap: { value: new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1) as THREE.Texture },
+    deformTexel: { value: 1 / 2048 },
+    deformSlope: { value: 0 },
+  };
 
   constructor(private data: TerrainData, quality: 'low' | 'medium' | 'high' = 'high') {
     const texSize = quality === 'low' ? 1024 : 2048;
@@ -213,17 +219,39 @@ export class TerrainMesh {
     tex.generateMipmaps = true;
     tex.needsUpdate = true;
     const repeat = this.data.size / 6;
+    const du = this.deformUniforms;
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.detailMap = { value: tex };
       shader.uniforms.detailRepeat = { value: repeat };
+      Object.assign(shader.uniforms, du);
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform float detailRepeat;')
+        .replace('#include <common>', `#include <common>
+          uniform sampler2D detailMap;
+          uniform float detailRepeat;
+          uniform sampler2D deformMap;
+          uniform float deformTexel;
+          uniform float deformSlope;`)
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>
           float dA = texture2D(detailMap, vMapUv * detailRepeat).r;
           float dB = texture2D(detailMap, vMapUv * detailRepeat * 0.23).r;
-          diffuseColor.rgb *= mix(0.93, 1.05, dA * 0.6 + dB * 0.4);`,
+          diffuseColor.rgb *= mix(0.93, 1.05, dA * 0.6 + dB * 0.4);
+          // ruts: compressed snow is a touch greyer/bluer and darker at the bottom
+          float defD = texture2D(deformMap, vMapUv).r;
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.78, 0.85, 0.95), clamp(defD * 3.0, 0.0, 1.0));`,
+        )
+        .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+          {
+            vec2 tx = vec2(deformTexel, 0.0);
+            float gX = texture2D(deformMap, vMapUv + tx.xy).r - texture2D(deformMap, vMapUv - tx.xy).r;
+            float gZ = texture2D(deformMap, vMapUv + tx.yx).r - texture2D(deformMap, vMapUv - tx.yx).r;
+            // surface height = -depth, so the normal tilts toward the rut floor on its walls
+            vec3 pertW = vec3(gX, 0.0, gZ) * deformSlope;
+            normal = normalize(normal + (viewMatrix * vec4(pertW, 0.0)).xyz);
+          }`,
         );
     };
   }

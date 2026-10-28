@@ -13,21 +13,68 @@
     "maxPayloadKg": 260,
     "hitchYawLimitDeg": 78,
     "hitchPitchLimitDeg": 38,
-    "hitchRollLimitDeg": 32
+    "hitchRollLimitDeg": 32,
+    "ploughDrag": 2.4,
+    "planingMult": 2.2,
+    "_plough": "Unpowered skis plough instead of planing: sink drag \u00d7 ploughDrag, planing speed \u00d7 planingMult (wide skis help through flotation)"
   },
   "upgrades": {
     "suspension": [
-      { "id": "stock",      "name": "Leaf Springs",          "price": 0,    "travel": 0.11, "stiffness": 1.0, "damping": 1.0 },
-      { "id": "heavyDuty",  "name": "Heavy-Duty Shocks",     "price": 1800, "travel": 0.16, "stiffness": 1.45, "damping": 1.35 }
+      {
+        "id": "stock",
+        "name": "Leaf Springs",
+        "price": 0,
+        "travel": 0.11,
+        "stiffness": 1.0,
+        "damping": 1.0
+      },
+      {
+        "id": "heavyDuty",
+        "name": "Heavy-Duty Shocks",
+        "price": 1800,
+        "travel": 0.16,
+        "stiffness": 1.45,
+        "damping": 1.35
+      }
     ],
     "skis": [
-      { "id": "stock",      "name": "Narrow Runners",        "price": 0,    "width": 0.11, "lateralGrip": 1.0 },
-      { "id": "wide",       "name": "Wide Powder Skis",      "price": 1400, "width": 0.24, "lateralGrip": 0.85 }
+      {
+        "id": "stock",
+        "name": "Narrow Runners",
+        "price": 0,
+        "width": 0.11,
+        "lateralGrip": 1.0
+      },
+      {
+        "id": "wide",
+        "name": "Wide Powder Skis",
+        "price": 1400,
+        "width": 0.24,
+        "lateralGrip": 0.85
+      }
     ],
     "tieDowns": [
-      { "id": "none",       "name": "Loose Load",            "price": 0,    "spillChance": 0.9,  "damageMult": 1.0 },
-      { "id": "straps",     "name": "Ratchet Straps",        "price": 600,  "spillChance": 0.45, "damageMult": 0.75 },
-      { "id": "net",        "name": "Cargo Net + Straps",    "price": 1500, "spillChance": 0.15, "damageMult": 0.55 }
+      {
+        "id": "none",
+        "name": "Loose Load",
+        "price": 0,
+        "spillChance": 0.9,
+        "damageMult": 1.0
+      },
+      {
+        "id": "straps",
+        "name": "Ratchet Straps",
+        "price": 600,
+        "spillChance": 0.45,
+        "damageMult": 0.75
+      },
+      {
+        "id": "net",
+        "name": "Cargo Net + Straps",
+        "price": 1500,
+        "spillChance": 0.15,
+        "damageMult": 0.55
+      }
     ]
   }
 }

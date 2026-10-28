@@ -7,7 +7,8 @@ import { TerrainData } from '../world/TerrainData';
 import { CargoItem, CargoType, LooseCargo } from './Cargo';
 import { SledPhysics } from './SledPhysics';
 import { box, cyl, skiMesh } from './geometry';
-import { clamp } from '../world/Noise';
+import { clamp, lerp, smoothstep } from '../world/Noise';
+import H from '../data/handling.json';
 
 type Upgrades = typeof trailerData.upgrades;
 export type SuspensionId = Upgrades['suspension'][number]['id'];
@@ -101,7 +102,8 @@ export class Trailer {
         .setCanSleep(false)
         .setCcdEnabled(true),
     );
-    phys.world.createCollider(R.ColliderDesc.cuboid(b.deckWidth / 2, 0.1, b.deckLength / 2).setTranslation(0, 0.05, 0).setDensity(0).setFriction(0.35), this.body);
+    // deck collider sits a little high and slippery: in deep snow the trailer ploughs rather than high-centres
+    phys.world.createCollider(R.ColliderDesc.cuboid(b.deckWidth / 2, 0.08, b.deckLength / 2).setTranslation(0, 0.18, 0).setDensity(0).setFriction(0.08), this.body);
     this.ray = new R.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     const hs = b.skiTrack / 2, hz = b.skiLength * 0.33;
     for (const [x, z] of [[hs, hz], [-hs, hz], [hs, -hz], [-hs, -hz]]) {
@@ -115,6 +117,10 @@ export class Trailer {
     this.readState();
     this.prevPos.copy(this.position);
     this.prevQuat.copy(this.quaternion);
+  }
+
+  get skiWidthM(): number {
+    return this.skiWidth;
   }
 
   get payloadMass(): number {
@@ -255,7 +261,8 @@ export class Trailer {
     const body = this.body;
     const m = this.mass;
     const speed = this.velocity.dot(this.forward);
-    const flotation = (2 * this.skiWidth * TRAILER.base.skiLength) / m / 0.0023;
+    // unpowered skis plane far later than a driven track (planingMult) – expressed as lower flotation
+    const flotation = (2 * this.skiWidth * TRAILER.base.skiLength) / m / 0.0023 / Math.pow(TRAILER.base.planingMult, 1.25);
     const maxLen = BASE + this.travel;
     let grounded = 0;
     const wasAir = this.airTime > 0.3;
@@ -274,7 +281,8 @@ export class Trailer {
       if (!hit) { c.compression = 0; continue; }
       c.hitPoint.copy(origin).addScaledVector(this.up, -hit.timeOfImpact);
       c.surface = SURFACES[this.terrain.surfaceAt(c.hitPoint.x, c.hitPoint.z)];
-      const st = sinkTarget(c.surface, Math.abs(speed), flotation, c.compression > 0 ? (c.compression * this.k) / designLoad : 1);
+      let st = sinkTarget(c.surface, Math.abs(speed), flotation, c.compression > 0 ? (c.compression * this.k) / designLoad : 1);
+      st *= 1 - 0.75 * clamp(this.terrain.packedAt(c.hitPoint.x, c.hitPoint.z) / (c.surface.sinkDepth + 0.02), 0, 1); // following the sled's rut
       c.sink += (st - c.sink) * Math.min(1, dt * (st > c.sink ? 2.2 : 4));
       const comp = maxLen - hit.timeOfImpact - c.sink + (c.surface.roughness > 0 ? c.surface.roughness * Math.sin(c.hitPoint.x * 2.1) * Math.sin(c.hitPoint.z * 1.7) : 0);
       if (comp <= 0) { c.compression = 0; continue; }
@@ -282,7 +290,7 @@ export class Trailer {
       c.grounded = true;
       grounded++;
       const compVel = (comp - c.prevCompression) / dt;
-      let F = this.k * comp + this.c * compVel;
+      let F = this.k * comp + this.c * compVel * (compVel < 0 ? H.suspension.reboundMult : 1);
       if (comp > this.travel) {
         F += this.k * 12 * (comp - this.travel);
         if (compVel > 2.2 && this.bottomCooldown <= 0) {
@@ -309,12 +317,17 @@ export class Trailer {
       const vp = body.velocityAtPoint(c.hitPoint);
       const vLat = vp.x * _r.x + vp.y * _r.y + vp.z * _r.z;
       const vLong = vp.x * _f.x + vp.y * _f.y + vp.z * _f.z;
-      const latMax = c.surface.lateralGrip * this.latGrip * c.load * dt;
-      const latJ = clamp(-vLat * mEff, -latMax, latMax);
-      c.slip = latMax > 0 ? Math.min(1, Math.abs(vLat * mEff) / latMax - 1) : 1;
+      // slip-angle curve like the sled's skis: grips, peaks, then slides (swing-out on ice)
+      const slipAngle = Math.atan2(Math.abs(vLat), Math.max(Math.abs(vLong), 1));
+      const peak = THREE.MathUtils.degToRad(H.slip.skiPeakDeg);
+      const curve = slipAngle < peak ? slipAngle / peak : lerp(1, H.slip.slideRatio, smoothstep(peak, peak * 3, slipAngle));
+      const k = Math.abs(vLat) < H.slip.lowSpeedGrip && Math.abs(vLong) < 3 ? 1 : curve;
+      const latMax = c.surface.lateralGrip * this.latGrip * c.load * k * dt;
+      const latJ = -Math.sign(vLat) * Math.min(Math.abs(vLat) * mEff, latMax);
+      c.slip = smoothstep(peak, peak * 3, slipAngle);
       const ap = _v.copy(c.hitPoint).lerp(this.position, 0.4);
       body.applyImpulseAtPoint({ x: _r.x * latJ, y: _r.y * latJ, z: _r.z * latJ }, ap, true);
-      const drag = c.surface.rollingDrag * c.load + sinkDragForce(c.surface, c.sink, c.load, vLong);
+      const drag = c.surface.rollingDrag * c.load + sinkDragForce(c.surface, c.sink, c.load, vLong) * TRAILER.base.ploughDrag;
       const dJ = Math.min(drag * dt, Math.abs(vLong) * mEff) * -Math.sign(vLong);
       body.applyImpulseAtPoint({ x: _f.x * dJ, y: _f.y * dJ, z: _f.z * dJ }, ap, true);
     }

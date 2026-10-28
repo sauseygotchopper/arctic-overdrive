@@ -1,4 +1,5 @@
 import surfaceData from '../data/surfaces.json';
+import handling from '../data/handling.json';
 
 export type SurfaceKey = 'groomed' | 'powder' | 'crust' | 'ice' | 'slush' | 'moguls';
 
@@ -44,7 +45,12 @@ export function sinkTarget(s: SurfaceDef, speed: number, flotation: number, load
   return Math.min(s.sinkDepth * planing * float * load, s.sinkDepth * 1.4);
 }
 
-/** Drag (N) from ploughing through snow while sunk, for a contact carrying normal load N. */
+/**
+ * Drag (N) from ploughing through snow while sunk, for a contact carrying normal load N.
+ * It fades toward `crawlFactor` near standstill: an overloaded sled bogs down to a crawl rather
+ * than stopping dead (snow resists motion, it doesn't glue you in place).
+ */
 export function sinkDragForce(s: SurfaceDef, sink: number, normalLoad: number, speed: number): number {
-  return s.sinkDrag * sink * normalLoad * Math.max(0.25, Math.min(1, Math.abs(speed) / 4));
+  const v = Math.abs(speed);
+  return s.sinkDrag * sink * normalLoad * Math.max(handling.bog.crawlFactor, Math.min(1, v / 5));
 }
