@@ -1,0 +1,152 @@
+import { SaveData, newSledSave } from './SaveSystem';
+import { SLEDS, SledSpec, SledSetup, getSled, getPart, partFits, COSMETICS, RIDER_MASS, Livery } from '../vehicles/SledSpec';
+import trailerData from '../data/trailers.json';
+import freerideData from '../data/freeride.json';
+
+export interface Requirement { label: string; have: number; need: number }
+
+/** Rider level from total XP (Phase 7's skill tree spends the points; level is shown everywhere). */
+export function riderLevel(xp: number): { level: number; into: number; span: number } {
+  let level = 1, need = 400, acc = 0;
+  while (xp >= acc + need) { acc += need; level++; need = Math.round(need * 1.18); }
+  return { level, into: xp - acc, span: need };
+}
+
+/** Purchases, unlocks and installs. All game rules about spending live here; UI only calls these. */
+export class Progression {
+  constructor(private save: SaveData, private onChange: () => void) {}
+
+  private get d() { return this.save; }
+
+  counts() {
+    const medals = Object.values(this.d.timeTrials).flatMap((r) => r.medals);
+    return {
+      xp: this.d.xp,
+      medals: new Set(Object.entries(this.d.timeTrials).filter(([, r]) => r.medals.length).map(([k]) => k)).size,
+      gold: medals.filter((m) => m === 'gold').length,
+      crystals: this.d.freeride.crystals.length,
+    };
+  }
+
+  /** Progress gates for buying a sled (price is checked separately). */
+  requirements(spec: SledSpec): Requirement[] {
+    const c = this.counts();
+    const u = spec.unlock;
+    const out: Requirement[] = [];
+    // tiers unlock in order: own the tier below first
+    if (spec.tier > 1) {
+      const has = SLEDS.some((x) => x.tier >= spec.tier - 1 && this.owns(x.id)) ? 1 : 0;
+      out.push({ label: `Own a tier ${spec.tier - 1} sled`, have: has, need: 1 });
+    }
+    if (u.xp) out.push({ label: 'XP', have: c.xp, need: u.xp });
+    if (u.medals) out.push({ label: 'Courses medalled', have: c.medals, need: u.medals });
+    if (u.gold) out.push({ label: 'Gold medals', have: c.gold, need: u.gold });
+    if (u.crystals) out.push({ label: `Frost crystals (of ${freerideData.collectibles.length})`, have: c.crystals, need: u.crystals });
+    return out;
+  }
+
+  unlocked(spec: SledSpec): boolean {
+    return this.requirements(spec).every((r) => r.have >= r.need);
+  }
+
+  owns(sledId: string) { return this.d.ownedSleds.includes(sledId); }
+
+  garage(sledId: string) {
+    return (this.d.sleds[sledId] ??= newSledSave());
+  }
+
+  /** The setup (spec + fitted parts + livery) the physics and model are built from. */
+  setupFor(sledId: string, extraParts: string[] = [], livery?: Livery, cargoMass = 0): SledSetup {
+    const g = this.garage(sledId);
+    const installed = { ...g.installed };
+    for (const id of extraParts) { const p = getPart(id); if (p) installed[p.slot] = id; }
+    return { spec: getSled(sledId), riderMass: RIDER_MASS, cargoMass, parts: Object.values(installed), livery: livery ?? g.livery };
+  }
+
+  private spend(amount: number): boolean {
+    if (this.d.currency < amount) return false;
+    this.d.currency -= amount;
+    return true;
+  }
+
+  buySled(id: string): string | null {
+    const spec = getSled(id);
+    if (this.owns(id)) return 'Already owned';
+    if (!this.unlocked(spec)) return 'Locked – keep progressing';
+    if (!this.spend(spec.price)) return 'Not enough cash';
+    this.d.ownedSleds.push(id);
+    this.garage(id);
+    this.d.currentSled = id;
+    this.onChange();
+    return null;
+  }
+
+  selectSled(id: string) {
+    if (!this.owns(id)) return;
+    this.d.currentSled = id;
+    this.onChange();
+  }
+
+  /** Buy (if needed) and fit a part. Returns an error string or null. */
+  buyPart(sledId: string, partId: string): string | null {
+    const p = getPart(partId);
+    const spec = getSled(sledId);
+    if (!p) return 'Unknown part';
+    if (!partFits(p, spec)) return `Needs a tier ${p.tier}+ sled`;
+    const g = this.garage(sledId);
+    if (!g.parts.includes(partId)) {
+      if (!this.spend(p.price)) return 'Not enough cash';
+      g.parts.push(partId);
+    }
+    g.installed[p.slot] = partId;
+    this.onChange();
+    return null;
+  }
+
+  removePart(sledId: string, slot: string) {
+    delete this.garage(sledId).installed[slot];
+    this.onChange();
+  }
+
+  buyCosmetic(sledId: string, kind: 'paint' | 'wrap' | 'gear', id: string): string | null {
+    const list = kind === 'paint' ? COSMETICS.paints : kind === 'wrap' ? COSMETICS.wraps : COSMETICS.gear;
+    const item = list.find((x) => x.id === id) as { id: string; price: number; minTier?: number } | undefined;
+    if (!item) return 'Unknown item';
+    const spec = getSled(sledId);
+    if (item.minTier && spec.tier < item.minTier) return `Tier ${item.minTier} sled only`;
+    const g = this.garage(sledId);
+    const key = `${kind}:${id}`;
+    if (item.price > 0 && !g.cosmetics.includes(key)) {
+      if (!this.spend(item.price)) return 'Not enough cash';
+      g.cosmetics.push(key);
+    }
+    g.livery = { ...g.livery, [kind]: id };
+    this.onChange();
+    return null;
+  }
+
+  setNumber(sledId: string, n: number) {
+    const g = this.garage(sledId);
+    g.livery = { ...g.livery, number: Math.max(1, Math.min(99, Math.round(n))) };
+    this.onChange();
+  }
+
+  buyTrailerPart(slot: 'suspension' | 'skis' | 'tieDowns', id: string): string | null {
+    const item = (trailerData.upgrades[slot] as { id: string; price: number }[]).find((x) => x.id === id);
+    if (!item) return 'Unknown part';
+    const key = `${slot}:${id}`;
+    const t = this.d.trailer;
+    if (item.price > 0 && !t.ownedParts.includes(key)) {
+      if (!this.spend(item.price)) return 'Not enough cash';
+      t.ownedParts.push(key);
+    }
+    t.upgrades[slot] = id;
+    this.onChange();
+    return null;
+  }
+
+  /** Cheapest locked/unowned sled the player is working toward (menu hint). */
+  nextGoal(): SledSpec | null {
+    return SLEDS.find((s) => !this.owns(s.id)) ?? null;
+  }
+}

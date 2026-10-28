@@ -53,10 +53,10 @@ export class RiderRig {
   private gloveR: THREE.Mesh;
   private cur: Pose = clonePose(POSES.seated);
 
-  constructor(suitColor = 0x1e2a3a, accentColor = 0x2fb5ff) {
+  constructor(suitColor: THREE.ColorRepresentation = 0x1e2a3a, accentColor: THREE.ColorRepresentation = 0x2fb5ff, helmetColor: THREE.ColorRepresentation = 0xf2f4f7) {
     const suit = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.85 });
     const accent = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.7 });
-    const helmetMat = new THREE.MeshPhysicalMaterial({ color: 0xf2f4f7, roughness: 0.3, clearcoat: 1 });
+    const helmetMat = new THREE.MeshPhysicalMaterial({ color: helmetColor, roughness: 0.3, clearcoat: 1 });
     const visorMat = new THREE.MeshPhysicalMaterial({ color: 0x111820, roughness: 0.05, metalness: 0.6 });
     const bootMat = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.8 });
     const cap = (r: number, m: THREE.Material) => {

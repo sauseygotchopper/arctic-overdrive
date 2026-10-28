@@ -2,6 +2,7 @@ import type { Game } from '../core/Game';
 import modesData from '../data/modes.json';
 import freerideData from '../data/freeride.json';
 import { COURSES, fmtTime } from '../modes/TimeTrial';
+import { riderLevel } from '../core/Progression';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m}"></span>` : '');
@@ -44,11 +45,26 @@ export class Menu {
   private render() {
     const g = this.game;
     const sd = g.save.data;
+    const lvl = riderLevel(sd.xp);
+    const goal = g.progression.nextGoal();
+    const goalHtml = goal ? (() => {
+      const reqs = g.progression.requirements(goal);
+      const unlocked = reqs.every((r) => r.have >= r.need);
+      const line = unlocked ? `Unlocked · $${fmt(goal.price)}${sd.currency >= goal.price ? ' – you can afford it!' : ` (need $${fmt(goal.price - sd.currency)} more)`}` : reqs.filter((r) => r.have < r.need).map((r) => `${r.label} ${fmt(r.have)}/${fmt(r.need)}`).join(' · ');
+      return `<div class="goal"><div class="goal-h">Next sled · T${goal.tier} ${goal.brand} ${goal.model}</div><div class="goal-l">${line}</div></div>`;
+    })() : '<div class="goal"><div class="goal-h">Every sled in the stable is yours.</div></div>';
     const head = `
       <div class="menu-side">
         <div class="logo">ARCTIC <em>OVERDRIVE</em></div>
-        <div class="tag">Frostpine Valley · ${g.player.setup.spec.brand} ${g.player.setup.spec.model}</div>
-        <div class="wallet"><b>$${fmt(sd.currency)}</b><span>${fmt(sd.xp)} XP</span></div>
+        <div class="tag">Frostpine Valley · T${g.player.setup.spec.tier} ${g.player.setup.spec.brand} ${g.player.setup.spec.model}</div>
+        <div class="wallet"><b>$${fmt(sd.currency)}</b><span>Lv ${lvl.level} · ${fmt(sd.xp)} XP</span></div>
+        <div class="lvl"><span style="width:${(lvl.into / lvl.span) * 100}%"></span></div>
+        <div class="side-btns">
+          <button data-garage="garage">Garage</button>
+          <button data-garage="dealer">Dealership</button>
+          <button data-garage="style">Paint &amp; Gear</button>
+        </div>
+        ${goalHtml}
         <div class="menu-help">Mouse to choose · <b>Esc</b> back / pause in game</div>
       </div>`;
     if (this.view === 'modes') {
@@ -71,6 +87,7 @@ export class Menu {
           </button>`;
       }).join('');
       this.el.innerHTML = `${head}<div class="menu-main"><div class="menu-title">Choose a mode</div><div class="cards">${cards}</div></div>`;
+      this.bindSide();
       this.el.querySelectorAll<HTMLButtonElement>('.card[data-mode]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.mode!;
         if (id === 'timeTrial') { this.view = 'courses'; this.render(); }
@@ -94,9 +111,14 @@ export class Menu {
           </button>`;
       }).join('');
       this.el.innerHTML = `${head}<div class="menu-main"><div class="menu-title"><button class="back">‹ Back</button>Time Trial</div><div class="courses">${rows}</div></div>`;
+      this.bindSide();
       this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
       this.el.querySelectorAll<HTMLButtonElement>('.course').forEach((b) => b.addEventListener('click', () => g.startMode('timeTrial', b.dataset.course)));
     }
+  }
+
+  private bindSide() {
+    this.el.querySelectorAll<HTMLButtonElement>('[data-garage]').forEach((b) => b.addEventListener('click', () => this.game.openGarage(b.dataset.garage as 'garage' | 'dealer' | 'style')));
   }
 
   // ---------- pause ----------

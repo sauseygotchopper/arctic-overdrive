@@ -119,11 +119,11 @@ export class SledPhysics {
     const rearLoad = 0.68 * p.mass * GRAVITY;
     const mk = (x: number, z: number, isSki: boolean, travel: number, load: number, zeta: number): Contact => {
       const sag = 0.42 * travel;
-      const k = load / sag;
+      const k = (load / sag) * p.springMult;
       const mEff = load / GRAVITY;
       return {
         local: new THREE.Vector3(x, 0, z), isSki, side: x > 0 ? -1 : 1,
-        maxLen: BASE_HEIGHT + travel, travel, k, c: 2 * zeta * Math.sqrt(k * mEff),
+        maxLen: BASE_HEIGHT + travel, travel, k, c: 2 * zeta * Math.sqrt(k * mEff) * p.dampMult,
         compression: 0, prevCompression: 0, grounded: false, load: 0, nominalLoad: load, sink: 0,
         surface: SURFACES[0], hitPoint: new THREE.Vector3(), slip: 0,
       };
@@ -262,7 +262,7 @@ export class SledPhysics {
       sinkT = clamp(sinkT, 0, s.sinkDepth * 1.4);
       c.sink += (sinkT - c.sink) * Math.min(1, dt * (sinkT > c.sink ? 2.2 : 4));
 
-      const bump = s.roughness > 0 ? s.roughness * bumpNoise(c.hitPoint.x, c.hitPoint.z) : 0;
+      const bump = s.roughness > 0 ? s.roughness * (1 - p.roughAbsorb) * bumpNoise(c.hitPoint.x, c.hitPoint.z) : 0;
       const comp = c.maxLen - toi - c.sink + bump;
       if (comp <= 0) { c.compression = 0; continue; }
       c.compression = comp;
@@ -323,7 +323,8 @@ export class SledPhysics {
     const curve = clamp(1 - Math.pow((r - 1) / 0.5, 2), 0.2, 1);
     const engage = smoothstep(p.engageRpm - 400, p.engageRpm + 500, this.rpm);
     let driveF = (thr * p.powerW * curve * engage) / Math.max(absV, 3);
-    driveF = Math.min(driveF, p.mass * GRAVITY * 1.0);
+    // launch pull is limited by gearing (scales with engine output) and by the sled's weight on the track
+    driveF = Math.min(driveF * (absV < 12 ? p.tractiveMult : 1), (p.powerW / 33) * p.tractiveMult, p.mass * GRAVITY * p.tractiveMult);
     const vTop = this.reversing ? 6 : p.topSpeed;
     driveF *= clamp((vTop - absV) / (vTop * 0.05), 0, 1);
     if (this.reversing) driveF *= -0.35;
@@ -355,7 +356,10 @@ export class SledPhysics {
       // ---- longitudinal first (track), so the friction circle knows what's left for cornering ----
       let longF = 0;
       let longUsed = 0;
-      const mu = s.grip * lerp(1, p.powderTraction, softness) * (c.isSki ? 1 : 1 + H.lean.backTraction * -this.leanZS);
+      const hard = s.sinkDepth < 0.05 && s.roughness < 0.1 && s.rollingDrag < 0.03; // ice / crust / groomed
+      const icy = s.grip < 0.8 && hard; // ice and wind crust
+      let mu = s.grip * lerp(1, p.powderTraction, softness) * (c.isSki ? 1 : 1 + H.lean.backTraction * -this.leanZS);
+      if (!c.isSki && icy) mu += p.studGrip;
       if (!c.isSki) {
         const share = trackLoad > 0 ? N / trackLoad : 0;
         const cap = mu * N;
@@ -378,6 +382,8 @@ export class SledPhysics {
 
       // ---- lateral: slip-angle curve (grip builds, peaks, then slides) ----
       let latMu = s.lateralGrip * (c.isSki ? 0.85 + p.handling * 0.35 : 0.9);
+      if (icy) latMu = latMu * p.hardGrip + (c.isSki ? 0 : p.studGrip * 0.6);
+      if (c.isSki && hard) latMu *= p.skiBite;
       if (c.isSki) {
         latMu *= leanInto >= 0 ? 1 + leanInto * H.lean.carveGrip : 1 + leanInto * H.lean.counterLeanPenalty;
         latMu *= 1 + H.lean.forwardSkiGrip * this.leanZS; // weight on the skis = more bite

@@ -21,7 +21,7 @@ export class Sled {
   constructor(phys: PhysicsWorld, private terrain: TerrainData, public setup: SledSetup, pos: THREE.Vector3, yaw: number) {
     const params = deriveParams(setup);
     this.physics = new SledPhysics(phys, terrain, params, pos, yaw);
-    this.visual = new SledModel(setup.spec, params);
+    this.visual = new SledModel(setup.spec, params, setup.livery);
     this.stunts = new StuntSystem(this.physics);
     this.physics.readState();
     this.snapshot();
@@ -79,6 +79,12 @@ export class Sled {
     this.visual.setTrackSpeed(p.trackSpeed, dt);
     this.visual.setRider(this.stunts.rider, dt);
     this.trailer?.render(alpha);
+  }
+
+  /** Remove from the world (sled swap in the garage). */
+  dispose(phys: PhysicsWorld, scene: THREE.Scene) {
+    phys.world.removeRigidBody(this.physics.body);
+    scene.remove(this.visual.root);
   }
 
   /** Move the sled (and anything hitched to it) – never teleport physics.body directly while towing. */

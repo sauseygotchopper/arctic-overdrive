@@ -1,0 +1,87 @@
+{
+  "_doc": "Garage parts. One part per slot can be installed. Effects modify the physics (see SledSpec.deriveParams): powerPct, topSpeedPct, tractivePct (clutch low-end pull), weightKg, trackLengthIn (+/-), lugHeightSet (in), studGrip (ice/crust grip added to the track), springPct, dampingPct, travelFront/travelRear (m added), roughAbsorb (0..1 less chatter on rough snow), skiWidthAdd (m), skiBitePct (ski lateral grip on hard snow), durabilityAdd, peakRpmAdd, maxRpmAdd. tier = minimum sled tier (and the sled's maxPartTier caps what it accepts).",
+  "categories": [
+    { "id": "engine", "name": "Engine", "slots": ["intake", "exhaust", "ecu", "turbo"] },
+    { "id": "drivetrain", "name": "Clutch & Gearing", "slots": ["clutch"] },
+    { "id": "track", "name": "Track", "slots": ["trackLength", "lugs", "studs"] },
+    { "id": "suspension", "name": "Suspension", "slots": ["shocks", "springs"] },
+    { "id": "skis", "name": "Skis", "slots": ["skis"] },
+    { "id": "weight", "name": "Weight", "slots": ["weight"] }
+  ],
+  "slotNames": {
+    "intake": "Intake", "exhaust": "Exhaust", "ecu": "ECU Tune", "turbo": "Turbo Kit", "clutch": "Clutch / Gearing",
+    "trackLength": "Track Length", "lugs": "Lug Height", "studs": "Traction Studs", "shocks": "Shocks", "springs": "Springs",
+    "skis": "Skis", "weight": "Weight Reduction"
+  },
+  "parts": [
+    { "id": "intake-1", "slot": "intake", "name": "Stage 1 Air Box", "desc": "Freer-breathing airbox and filter.", "price": 900, "tier": 1, "effects": { "powerPct": 4 } },
+    { "id": "intake-2", "slot": "intake", "name": "Stage 2 Ram Air", "desc": "Ducted cold-air intake through the hood.", "price": 2400, "tier": 2, "effects": { "powerPct": 8 } },
+
+    { "id": "exhaust-1", "slot": "exhaust", "name": "Sport Silencer", "desc": "Lighter can, a little more pull up top.", "price": 1200, "tier": 1, "effects": { "powerPct": 5, "weightKg": -2 } },
+    { "id": "exhaust-2", "slot": "exhaust", "name": "Tuned Expansion Pipe", "desc": "Race pipe tuned for peak power higher in the revs.", "price": 3200, "tier": 2, "effects": { "powerPct": 10, "peakRpmAdd": 150, "maxRpmAdd": 150 } },
+
+    { "id": "ecu-1", "slot": "ecu", "name": "Street Map", "desc": "Sharper throttle and timing.", "price": 1100, "tier": 1, "effects": { "powerPct": 5 } },
+    { "id": "ecu-2", "slot": "ecu", "name": "Race Map", "desc": "Aggressive timing, higher rev limiter. Needs good fuel.", "price": 2800, "tier": 3, "effects": { "powerPct": 9, "maxRpmAdd": 250, "durabilityAdd": -0.03 } },
+
+    { "id": "turbo-1", "slot": "turbo", "name": "Boost Kit 7 psi", "desc": "Bolt-on turbo with intercooler. Big power, some weight.", "price": 7800, "tier": 4, "effects": { "powerPct": 30, "weightKg": 12, "topSpeedPct": 6 } },
+    { "id": "turbo-2", "slot": "turbo", "name": "Boost Kit 11 psi", "desc": "Full boost with upgraded internals. Turbo Build only.", "price": 12500, "tier": 5, "effects": { "powerPct": 48, "weightKg": 15, "topSpeedPct": 10, "durabilityAdd": -0.05 } },
+
+    { "id": "clutch-accel", "slot": "clutch", "name": "Hole-shot Clutch Kit", "desc": "Lower gearing and quick engagement: punch out of corners, lower top speed.", "price": 1500, "tier": 1, "effects": { "tractivePct": 15, "topSpeedPct": -6 } },
+    { "id": "clutch-top", "slot": "clutch", "name": "Lake-Racer Gearing", "desc": "Tall gearing for flat-out runs. Softer launch.", "price": 1500, "tier": 1, "effects": { "tractivePct": -8, "topSpeedPct": 9 } },
+    { "id": "clutch-pro", "slot": "clutch", "name": "Pro Adjustable Clutch", "desc": "Tuned weights and springs: better at both ends.", "price": 4200, "tier": 3, "effects": { "tractivePct": 9, "topSpeedPct": 4 } },
+
+    { "id": "track-long", "slot": "trackLength", "name": "Extended Rail Kit +16in", "desc": "Longer track: much better flotation, a bit heavier and draggier on hardpack.", "price": 2600, "tier": 1, "effects": { "trackLengthIn": 16, "weightKg": 7 } },
+    { "id": "track-short", "slot": "trackLength", "name": "Short Coupled Kit -8in", "desc": "Shorter track: turns and rotates quicker, sinks more in powder.", "price": 1800, "tier": 2, "effects": { "trackLengthIn": -8, "weightKg": -3 } },
+
+    { "id": "lugs-125", "slot": "lugs", "name": "1.25in Ripsaw Lugs", "desc": "Low lugs: fast on groomed and ice, weak in powder.", "price": 800, "tier": 1, "effects": { "lugHeightSet": 1.25 } },
+    { "id": "lugs-200", "slot": "lugs", "name": "2.0in Crossover Lugs", "desc": "All-rounder bite.", "price": 1100, "tier": 1, "effects": { "lugHeightSet": 2.0 } },
+    { "id": "lugs-260", "slot": "lugs", "name": "2.6in Powder Paddles", "desc": "Deep bite for powder, drag on hardpack.", "price": 1500, "tier": 2, "effects": { "lugHeightSet": 2.6 } },
+    { "id": "lugs-300", "slot": "lugs", "name": "3.0in Mountain Paddles", "desc": "Maximum powder traction. Slow on trails.", "price": 1800, "tier": 3, "effects": { "lugHeightSet": 3.0 } },
+
+    { "id": "studs-96", "slot": "studs", "name": "96 Carbide Studs", "desc": "Bite on ice and crust.", "price": 1000, "tier": 1, "effects": { "studGrip": 0.25, "weightKg": 1.5 } },
+    { "id": "studs-144", "slot": "studs", "name": "144 Race Studs", "desc": "Full stud pattern: lake racing grip.", "price": 2200, "tier": 2, "effects": { "studGrip": 0.45, "weightKg": 2.5 } },
+
+    { "id": "shocks-sport", "slot": "shocks", "name": "Sport Gas Shocks", "desc": "More travel and control: steadier landings, less chatter.", "price": 2000, "tier": 1, "effects": { "dampingPct": 15, "travelFront": 0.01, "travelRear": 0.02, "roughAbsorb": 0.25 } },
+    { "id": "shocks-pro", "slot": "shocks", "name": "Pro Remote-Reservoir Shocks", "desc": "Race-grade valving. Big hits barely register.", "price": 5200, "tier": 3, "effects": { "dampingPct": 25, "travelFront": 0.02, "travelRear": 0.04, "roughAbsorb": 0.5, "durabilityAdd": 0.05 } },
+
+    { "id": "springs-soft", "slot": "springs", "name": "Plush Springs", "desc": "Softer ride on rough snow, bottoms on big hits.", "price": 700, "tier": 1, "effects": { "springPct": -12, "roughAbsorb": 0.15 } },
+    { "id": "springs-stiff", "slot": "springs", "name": "Race Springs", "desc": "Stiffer: holds up on jumps and with cargo.", "price": 1100, "tier": 1, "effects": { "springPct": 18 } },
+    { "id": "springs-hd", "slot": "springs", "name": "Heavy-Haul Springs", "desc": "Rated for towing and loads.", "price": 1400, "tier": 2, "effects": { "springPct": 30, "weightKg": 2 } },
+
+    { "id": "skis-wide", "slot": "skis", "name": "Wide Powder Skis", "desc": "Float on top of deep snow, less bite on hardpack.", "price": 1300, "tier": 1, "effects": { "skiWidthAdd": 0.06, "skiBitePct": -12 } },
+    { "id": "skis-carbide", "slot": "skis", "name": "Carbide Runners", "desc": "Sharp carbide keels: steering bite on ice and groomed.", "price": 1100, "tier": 1, "effects": { "skiBitePct": 25, "weightKg": 1 } },
+    { "id": "skis-pro", "slot": "skis", "name": "Pro Dual-Keel Skis", "desc": "Wider and sharper at once.", "price": 3200, "tier": 3, "effects": { "skiWidthAdd": 0.03, "skiBitePct": 14 } },
+
+    { "id": "weight-1", "slot": "weight", "name": "Lightweight Fasteners & Seat", "desc": "-8 kg. Quicker and floatier in the air.", "price": 1600, "tier": 1, "effects": { "weightKg": -8 } },
+    { "id": "weight-2", "slot": "weight", "name": "Carbon Panels & Lithium Battery", "desc": "-15 kg.", "price": 3800, "tier": 2, "effects": { "weightKg": -15 } },
+    { "id": "weight-3", "slot": "weight", "name": "Full Carbon Package", "desc": "-24 kg. Race-weight sled.", "price": 7200, "tier": 4, "effects": { "weightKg": -24, "durabilityAdd": -0.04 } }
+  ],
+  "cosmetics": {
+    "paints": [
+      { "id": "stock", "name": "Factory", "price": 0 },
+      { "id": "glacier", "name": "Glacier Blue", "body": "#2f7fd6", "accent": "#f2f4f7", "price": 600 },
+      { "id": "inferno", "name": "Inferno Red", "body": "#e8432e", "accent": "#16181d", "price": 600 },
+      { "id": "lime", "name": "Timber Lime", "body": "#7ac943", "accent": "#16181d", "price": 600 },
+      { "id": "hivis", "name": "Hi-Vis Yellow", "body": "#f6c400", "accent": "#16181d", "price": 600 },
+      { "id": "arctic", "name": "Arctic White", "body": "#eef2f6", "accent": "#2b2f36", "price": 600 },
+      { "id": "stealth", "name": "Stealth Matte", "body": "#1d2026", "accent": "#4a4f58", "price": 900 },
+      { "id": "aurora", "name": "Aurora Chrome", "body": "#6fd6c9", "accent": "#7a3cff", "price": 2400, "minTier": 5 },
+      { "id": "molten", "name": "Molten Overdrive", "body": "#16181d", "accent": "#ff5a1f", "price": 2400, "minTier": 5 }
+    ],
+    "wraps": [
+      { "id": "none", "name": "None", "price": 0 },
+      { "id": "stripes", "name": "Rally Stripes", "price": 500 },
+      { "id": "slash", "name": "Slash Graphic", "price": 700 },
+      { "id": "camo", "name": "Timber Camo", "price": 800 },
+      { "id": "digital", "name": "Digital Frost", "price": 900 },
+      { "id": "flames", "name": "Overdrive Flames", "price": 1800, "minTier": 5 }
+    ],
+    "gear": [
+      { "id": "stock", "name": "Trail Shell", "suit": "#1e2a3a", "accent": "#2fb5ff", "helmet": "#f2f4f7", "price": 0 },
+      { "id": "blaze", "name": "Blaze Orange", "suit": "#22252b", "accent": "#ff5a1f", "helmet": "#ff5a1f", "price": 500 },
+      { "id": "whiteout", "name": "Whiteout", "suit": "#e9eef3", "accent": "#9cc3e6", "helmet": "#ffffff", "price": 500 },
+      { "id": "backcountry", "name": "Backcountry", "suit": "#3b4a2f", "accent": "#d9a441", "helmet": "#2b2f36", "price": 600 },
+      { "id": "racer", "name": "Race Team", "suit": "#16181d", "accent": "#f6c400", "helmet": "#f6c400", "price": 900 }
+    ]
+  }
+}

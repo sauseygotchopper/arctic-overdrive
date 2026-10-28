@@ -9,7 +9,9 @@ import { SkySystem, TimeOfDay, Weather, WEATHER_FX } from '../world/Sky';
 import { Effects } from '../world/Effects';
 import { SnowDeformation, DEFORM_DEPTH } from '../world/SnowDeformation';
 import { Sled } from '../vehicles/Sled';
-import { getSled, RIDER_MASS } from '../vehicles/SledSpec';
+import { Progression } from './Progression';
+import { Showroom } from '../ui/Showroom';
+import { Garage } from '../ui/Garage';
 import { DriveInput } from '../vehicles/SledPhysics';
 import { Trailer, TrailerUpgrades } from '../vehicles/Trailer';
 import { LooseCargo, TEST_LOADS } from '../vehicles/Cargo';
@@ -52,12 +54,15 @@ export class Game {
   menu!: Menu;
   replay!: Replay;
   photo!: PhotoMode;
+  progression!: Progression;
+  showroom!: Showroom;
+  garage!: Garage;
   readonly routes = new Map<string, Route>();
   readonly dev = new DevTools(this);
   mode: GameMode | null = null;
   /** Audio hook – the audio engine (Phase 7) fills this in. */
   audioCue?: (name: string) => void;
-  private state: 'menu' | 'playing' = 'menu';
+  private state: 'menu' | 'playing' | 'garage' = 'menu';
   private paused = false;
   private scenery!: Scenery;
   private loadIndex = 1;
@@ -122,13 +127,16 @@ export class Game {
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
     this.loose = new LooseCargo(this.physics, this.scene);
 
-    const sp = this.terrain.def.spawn;
-    const yaw = Math.atan2(sp.headingTo[0] - sp.x, sp.headingTo[1] - sp.z);
-    this.player = new Sled(this.physics, this.terrain, { spec: getSled(this.save.data.currentSled), riderMass: RIDER_MASS, cargoMass: 0 }, new THREE.Vector3(sp.x, this.terrain.heightAt(sp.x, sp.z) + 0.9, sp.z), yaw);
-    this.scene.add(this.player.visual.root);
+    this.progression = new Progression(this.save.data, () => {
+      this.save.save();
+      this.hud.setWallet(this.save.data.currency, this.save.data.xp);
+    });
+    this.createPlayer();
     this.replay = new Replay(this);
     this.photo = new PhotoMode(this);
     this.menu = new Menu(this);
+    this.showroom = new Showroom(this.renderer);
+    this.garage = new Garage(this);
     this.applyLighting();
     this.simulate(1.5, IDLE_INPUT); // settle on the snow before the menu shows it
 
@@ -137,6 +145,41 @@ export class Game {
     Object.assign(window, { __game: this, __dev: this.dev });
     this.toMenu();
     await step('Ready', 1);
+  }
+
+  private playerSetupKey = '';
+
+  /** (Re)build the player's sled from the save: current sled, fitted parts and livery. */
+  createPlayer() {
+    const sp = this.terrain.def.spawn;
+    const yaw = Math.atan2(sp.headingTo[0] - sp.x, sp.headingTo[1] - sp.z);
+    if (this.player) {
+      if (this.player.trailer) this.toggleTrailer(true);
+      this.player.dispose(this.physics, this.scene);
+    }
+    const setup = this.progression.setupFor(this.save.data.currentSled);
+    this.playerSetupKey = JSON.stringify(setup);
+    this.player = new Sled(this.physics, this.terrain, setup, new THREE.Vector3(sp.x, this.terrain.heightAt(sp.x, sp.z) + 0.9, sp.z), yaw);
+    this.scene.add(this.player.visual.root);
+  }
+
+  openGarage(tab: 'dealer' | 'garage' | 'style' | 'trailer' = 'garage') {
+    this.menu.hide();
+    this.state = 'garage';
+    this.showroom.active = true;
+    this.garage.open(tab);
+  }
+
+  closeGarage() {
+    this.garage.close();
+    this.showroom.active = false;
+    // rebuild the ridden sled only if its setup actually changed
+    if (JSON.stringify(this.progression.setupFor(this.save.data.currentSled)) !== this.playerSetupKey) {
+      this.createPlayer();
+      this.applyLighting();
+      this.simulate(1, IDLE_INPUT);
+    }
+    this.toMenu();
   }
 
   applyLighting() {
@@ -355,6 +398,14 @@ export class Game {
       if (input.consumePressed('replay') || input.consumePressed('pause')) this.replay.stop();
       else this.replay.update(dt);
       this.render(dt);
+      return;
+    }
+    // ---- garage: showroom scene instead of the world ----
+    if (this.state === 'garage') {
+      this.showroom.update(dt);
+      this.garage.update(dt);
+      input.endFrame();
+      this.showroom.render();
       return;
     }
     // ---- menu: idle sled, slow orbit camera ----

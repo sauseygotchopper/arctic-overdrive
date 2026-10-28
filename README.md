@@ -45,6 +45,25 @@ touchdown or it's a crash. Tricks chain into a combo (×1 per trick); a clean la
 open for 2 s so you can chain the next jump, a sketchy landing banks 75%, a crash loses it.
 Heavier setups pop lower and rotate slower (air torques are fixed, inertia comes from mass).
 
+### Sleds, garage & progression
+Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
+
+| Tier | Sled | Class | Character |
+|---|---|---|---|
+| 1 | Nordvik Trail 600 | Entry trail (~600cc, 129in) | Light, cheap, slow; the starter |
+| 2 | Ravik Crossfire 850 | Crossover (~850cc, 137in) | Balanced trail/powder |
+| 3 | Altamont Summit 165 | Mountain (165in x 3in lugs) | Floats in powder, narrow and twitchy on ice |
+| 4 | Kestrel SX-R 600 | Snocross race (121in) | Stiff long-travel suspension, best on jumps and tracks |
+| 5 | Overdrive Turbo Build | Custom turbo | Highest ceilings, turbo kits, exclusive liveries |
+
+A sled is bought with cash once its progress gates are met (own the tier below, XP, medals,
+crystals). Parts (`src/data/parts.json`) change real physics values through one function,
+`deriveParams()` in `src/vehicles/SledSpec.ts`: engine (intake/exhaust/ECU/turbo), clutch gearing,
+track length, lugs, studs, shocks, springs, skis, weight. The garage shows a before/after
+comparison of every stat before you buy. Paint, wraps, race numbers and rider gear are per sled.
+Trailer upgrades are bought in the garage's Trailer tab. Saves are versioned (v2) and older saves
+migrate automatically.
+
 ### Handling & snow
 Tuning for the arcade feel lives in `src/data/handling.json`: suspension damping (extra rebound
 damping stops the rear bucking), slip curves (skis/track grip up to a peak slip angle then slide;
@@ -63,9 +82,8 @@ Cargo adds mass and raises the trailer's centre of gravity: slower acceleration,
 wider turns, deeper sinking in powder, swing-out on ice, jackknifes when braking hard while
 turning, tip-overs on sidehills and bad landings (cargo spills; fragile items lose value on hard
 landings and bottom-outs). Tricks are disabled while towing; small jumps still score airtime.
-Upgrades (garage UI arrives in Phase 4; data in `src/data/trailers.json`):
-heavy-duty shocks, wide powder skis, ratchet straps / cargo net. From the console:
-`__game.setTrailerUpgrade('suspension', 'heavyDuty')`.
+Upgrades are bought in the garage's Trailer tab (data in `src/data/trailers.json`):
+heavy-duty shocks, wide powder skis, ratchet straps / cargo net.
 
 ## Layout
 - `src/core` — game loop (fixed 60 Hz physics + interpolated rendering), input, camera, save
@@ -73,8 +91,9 @@ heavy-duty shocks, wide powder skis, ratchet straps / cargo net. From the consol
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
 - `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, jumps, sky/weather, effects, snow deformation
 - `src/modes` — GameMode interface, Freeride, TimeTrial, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`
-- `src/ui` — HUD, minimap, menu/pause, styles
-- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `trailers.json`, `cargo.json`
+- `src/ui` — HUD, minimap, menu/pause, garage/dealership, showroom (3D garage scene), styles
+- `src/core/Progression.ts` — every purchase/unlock/install rule
+- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`
 
 ## Debugging
 - `__game.simulate(seconds, { throttle: 1, steer: 0.5 }, { jump: true })` — deterministic physics steps.

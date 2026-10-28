@@ -1,34 +1,44 @@
-/** Versioned localStorage save. Phase 4 fills in currency/garage; the shape is fixed now. */
+import { STARTER_SLED, Livery, DEFAULT_LIVERY } from '../vehicles/SledSpec';
+
+/** Per-sled garage state: parts bought, parts fitted (one per slot), cosmetics bought and the livery on it. */
+export interface SledSave {
+  parts: string[];
+  installed: Record<string, string>;
+  cosmetics: string[];
+  livery: Livery;
+}
+
+/** Versioned localStorage save. Version 2 added per-sled garages and trailer parts. */
 export interface SaveData {
-  version: 1;
+  version: 2;
   currency: number;
   xp: number;
   ownedSleds: string[];
   currentSled: string;
-  upgrades: Record<string, string[]>;
-  bestTimes: Record<string, number>;
+  sleds: Record<string, SledSave>;
   settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; weather: string; camera: string };
   timeTrials: Record<string, { best: number | null; times: number[]; splits: number[]; medals: string[] }>;
   freeride: { crystals: string[]; viewpoints: string[] };
   tutorialDone: boolean;
-  trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string } };
+  trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string }; ownedParts: string[] };
 }
 
 const KEY = 'arctic-overdrive-save';
 
+export const newSledSave = (): SledSave => ({ parts: [], installed: {}, cosmetics: [], livery: { ...DEFAULT_LIVERY } });
+
 export const DEFAULT_SAVE: SaveData = {
-  version: 1,
+  version: 2,
   currency: 0,
   xp: 0,
-  ownedSleds: ['ravik-crossfire-850'],
-  currentSled: 'ravik-crossfire-850',
-  upgrades: {},
-  bestTimes: {},
+  ownedSleds: [STARTER_SLED],
+  currentSled: STARTER_SLED,
+  sleds: { [STARTER_SLED]: newSledSave() },
   settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase' },
   timeTrials: {},
   freeride: { crystals: [], viewpoints: [] },
   tutorialDone: false,
-  trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' } },
+  trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' }, ownedParts: [] },
 };
 
 export class SaveSystem {
@@ -42,13 +52,7 @@ export class SaveSystem {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return structuredClone(DEFAULT_SAVE);
-      const parsed = JSON.parse(raw);
-      return {
-        ...structuredClone(DEFAULT_SAVE), ...parsed,
-        settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
-        freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
-        trailer: { ...DEFAULT_SAVE.trailer, ...parsed.trailer, upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades } },
-      };
+      return migrate(JSON.parse(raw));
     } catch {
       return structuredClone(DEFAULT_SAVE);
     }
@@ -61,4 +65,30 @@ export class SaveSystem {
       /* storage full or blocked – progress just won't persist */
     }
   }
+}
+
+/** Bring any older save up to the current shape without losing progress. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrate(parsed: any): SaveData {
+  const d: SaveData = {
+    ...structuredClone(DEFAULT_SAVE),
+    ...parsed,
+    version: 2,
+    settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
+    freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
+    trailer: {
+      ...DEFAULT_SAVE.trailer, ...parsed.trailer,
+      upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades },
+      ownedParts: parsed.trailer?.ownedParts ?? [],
+    },
+    sleds: parsed.sleds ?? {},
+  };
+  // v1 saves started on the crossover: keep it, and add the new starter sled
+  if (!d.ownedSleds.includes(STARTER_SLED)) d.ownedSleds = [STARTER_SLED, ...d.ownedSleds];
+  for (const id of d.ownedSleds) d.sleds[id] = { ...newSledSave(), ...d.sleds[id] };
+  // v1 trailer upgrades were set from the console: treat them as owned
+  for (const [slot, id] of Object.entries(d.trailer.upgrades)) if (!['stock', 'none'].includes(id) && !d.trailer.ownedParts.includes(`${slot}:${id}`)) d.trailer.ownedParts.push(`${slot}:${id}`);
+  delete (d as unknown as Record<string, unknown>).upgrades;
+  delete (d as unknown as Record<string, unknown>).bestTimes;
+  return d;
 }

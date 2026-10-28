@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SledSpec, SledParams } from './SledSpec';
+import { SledSpec, SledParams, Livery, DEFAULT_LIVERY, COSMETICS } from './SledSpec';
 import { box, cyl, orientBetween, profileExtrude, skiMesh } from './geometry';
 import { RiderRig, RiderState } from './Rider';
 
@@ -22,7 +22,7 @@ export interface SledVisual {
 export class SledModel implements SledVisual {
   readonly root = new THREE.Group();
   readonly headLocal = new THREE.Vector3(0, 1.35, -0.25);
-  readonly rider = new RiderRig();
+  readonly rider: RiderRig;
   private skiL = new THREE.Group();
   private skiR = new THREE.Group();
   private skiPivotL = new THREE.Group();
@@ -38,9 +38,19 @@ export class SledModel implements SledVisual {
   private trackScroll = 0;
   private trackLen: number;
 
-  constructor(spec: SledSpec, params: SledParams) {
-    const paint = new THREE.MeshPhysicalMaterial({ color: spec.colors.body, roughness: 0.35, metalness: 0.05, clearcoat: 0.8, clearcoatRoughness: 0.2 });
-    const accent = new THREE.MeshStandardMaterial({ color: spec.colors.accent, roughness: 0.55, metalness: 0.2 });
+  constructor(spec: SledSpec, params: SledParams, livery: Livery = DEFAULT_LIVERY) {
+    const paintDef = COSMETICS.paints.find((x) => x.id === livery.paint);
+    const bodyColor = paintDef && 'body' in paintDef ? paintDef.body! : spec.colors.body;
+    const accentColor = paintDef && 'accent' in paintDef ? paintDef.accent! : spec.colors.accent;
+    const gear = COSMETICS.gear.find((x) => x.id === livery.gear) ?? COSMETICS.gear[0];
+    this.rider = new RiderRig(gear.suit, gear.accent, gear.helmet);
+    const wrap = livery.wrap !== 'none' ? makeWrapTexture(livery.wrap, bodyColor, accentColor) : null;
+    const matte = livery.paint === 'stealth';
+    const paint = new THREE.MeshPhysicalMaterial({
+      color: wrap ? 0xffffff : bodyColor, map: wrap, roughness: matte ? 0.75 : 0.35, metalness: livery.paint === 'aurora' ? 0.6 : 0.05,
+      clearcoat: matte ? 0 : 0.8, clearcoatRoughness: 0.2,
+    });
+    const accent = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.55, metalness: 0.2 });
     const seatMat = new THREE.MeshStandardMaterial({ color: spec.colors.seat, roughness: 0.8 });
     const metal = new THREE.MeshStandardMaterial({ color: 0x9aa2ad, roughness: 0.35, metalness: 0.85 });
     const rubber = new THREE.MeshStandardMaterial({ color: 0x1a1b1e, roughness: 0.9 });
@@ -90,6 +100,8 @@ export class SledModel implements SledVisual {
     const ws = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.32), glass);
     ws.position.set(0, 0.72, 0.62);
     ws.rotation.x = -0.75;
+    if (spec.style === 'race') { ws.scale.set(0.8, 0.45, 1); ws.position.set(0, 0.64, 0.68); }
+    if (spec.style === 'trail') { ws.scale.set(1.05, 1.5, 1); ws.position.set(0, 0.78, 0.6); }
     this.root.add(ws);
     for (const s of [-1, 1]) {
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), this.lampMat);
@@ -123,7 +135,8 @@ export class SledModel implements SledVisual {
     this.gripL.position.set(0.36, 0.32, 0);
     this.gripR.position.set(-0.36, 0.32, 0);
     this.bars.add(this.gripL, this.gripR);
-    this.bars.position.set(0, 0.52, 0.32);
+    // mountain sleds run tall risers for standing up in deep snow
+    this.bars.position.set(0, spec.style === 'mountain' ? 0.66 : 0.52, 0.32);
     this.bars.rotation.x = -0.35;
     this.root.add(this.bars);
 
@@ -186,6 +199,32 @@ export class SledModel implements SledVisual {
     }
     this.root.add(this.trackGroup);
 
+    // ---------- class details ----------
+    if (spec.style === 'race' || spec.style === 'turbo' || livery.number !== DEFAULT_LIVERY.number) {
+      const plate = new THREE.MeshStandardMaterial({ map: makeNumberTexture(livery.number, accentColor), roughness: 0.6 });
+      for (const s of [-1, 1]) {
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.24), plate);
+        p.position.set(s * 0.405, 0.24, 1.0);
+        p.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2;
+        this.root.add(p);
+      }
+    }
+    if (spec.style === 'turbo') {
+      const scoop = profileExtrude([[0.75, 0.5], [0.75, 0.62], [1.15, 0.5], [1.2, 0.42]], 0.32, accent, 0.02);
+      this.root.add(scoop);
+      const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 10), new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0xff5a1f, emissiveIntensity: 1.6 }));
+      glow.rotation.x = Math.PI / 2;
+      glow.position.set(-0.33, 0.12, 0.55);
+      this.root.add(glow);
+    }
+    if (spec.style === 'mountain') {
+      // tall flap and bars-mounted mountain strap
+      const strap = cyl(0.012, 0.36, rubber);
+      strap.position.set(0, 0.95, 0.32);
+      strap.rotation.x = -0.6;
+      this.root.add(strap);
+    }
+
     // ---------- rider ----------
     this.root.add(this.rider.group);
 
@@ -245,6 +284,73 @@ function remapExtrudeUV(g: THREE.BufferGeometry) {
     const along = y < 0.16 ? z : -z + 2;
     uv.setXY(i, x * 2 + 0.5, along);
   }
+}
+
+/** Hood wrap graphic painted on a canvas in the livery colours. */
+function makeWrapTexture(kind: string, body: string, accent: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = body;
+  g.fillRect(0, 0, 512, 256);
+  g.fillStyle = accent;
+  if (kind === 'stripes') {
+    for (const y of [92, 128]) g.fillRect(0, y, 512, 22);
+  } else if (kind === 'slash') {
+    for (let i = 0; i < 4; i++) {
+      g.beginPath();
+      g.moveTo(80 + i * 90, 256); g.lineTo(150 + i * 90, 256); g.lineTo(330 + i * 60, 0); g.lineTo(290 + i * 60, 0);
+      g.closePath(); g.fill();
+    }
+  } else if (kind === 'camo') {
+    const cols = [accent, '#4a5a3a', '#2b3320'];
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = cols[i % 3];
+      g.beginPath();
+      g.ellipse((i * 97) % 512, (i * 53) % 256, 30 + (i % 5) * 9, 16 + (i % 4) * 7, i, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (kind === 'digital') {
+    for (let y = 0; y < 256; y += 16) for (let x = 0; x < 512; x += 16) {
+      const v = Math.sin(x * 0.07 + y * 0.11) + Math.sin(x * 0.023 - y * 0.05);
+      if (v > 0.6) { g.fillStyle = accent; g.fillRect(x, y, 16, 16); }
+      else if (v > 0.2) { g.fillStyle = '#ffffff55'; g.fillRect(x, y, 16, 16); }
+    }
+  } else if (kind === 'flames') {
+    for (let i = 0; i < 7; i++) {
+      const y0 = 40 + i * 28;
+      g.beginPath();
+      g.moveTo(512, y0);
+      for (let x = 512; x > 120; x -= 40) g.quadraticCurveTo(x - 20, y0 + (x % 80 ? -26 : 26), x - 40, y0);
+      g.quadraticCurveTo(60, y0 + 10, 512, y0 + 18);
+      g.fill();
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  // hood caps take shape coordinates (z 0.3..1.7, y -0.25..0.6) as UVs
+  t.repeat.set(1 / 1.4, 1 / 0.85);
+  t.offset.set(-0.3 / 1.4, 0.25 / 0.85);
+  return t;
+}
+
+function makeNumberTexture(n: number, accent: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 80;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#f4f6f8';
+  g.fillRect(0, 0, 128, 80);
+  g.strokeStyle = accent;
+  g.lineWidth = 8;
+  g.strokeRect(4, 4, 120, 72);
+  g.fillStyle = '#111';
+  g.font = 'italic 800 58px "Barlow Condensed", system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(String(n), 64, 43);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 function makeTrackTexture() {
