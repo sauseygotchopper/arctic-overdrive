@@ -32,6 +32,14 @@ touchdown or it's a crash. Tricks chain into a combo (×1 per trick); a clean la
 open for 2 s so you can chain the next jump, a sketchy landing banks 75%, a crash loses it.
 Heavier setups pop lower and rotate slower (air torques are fixed, inertia comes from mass).
 
+### Deep snow
+A sunk ski or track sits in its own groove, so in soft snow the sled tracks straight and turns by
+carving (lean into the turn) rather than skating sideways. Turns are capped at what the snow can hold,
+and a spinning track loses some side grip on hardpack (power slides). Pinning the throttle while
+slow in powder makes the track dig a trench under itself until the belly pan rests on the snow:
+you're bogged. Rock side to side, back out (hold S), or feather the throttle to climb out; R always recovers.
+Heavy trailer loads bog much more easily than a solo sled.
+
 ### Trailer
 `H` hitches the Haulmaster utility trailer (spherical hitch joint + soft yaw/pitch/roll limits).
 Cargo adds mass and raises the trailer's centre of gravity: slower acceleration, longer braking,

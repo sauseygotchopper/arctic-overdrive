@@ -198,6 +198,8 @@ export class Game {
       this.hud.toast('Trailer unhitched');
       return;
     }
+    p.physics.readState();
+    if (p.physics.up.y < 0.6 || p.physics.groundedCount === 0) { this.hud.toast('Get the sled upright on the snow first'); return; }
     const t = new Trailer(this.physics, this.terrain, this.loose, { ...this.save.data.trailer.upgrades }, p.physics.position.clone(), 0);
     this.scene.add(t.root);
     t.setCargo(TEST_LOADS[this.loadIndex]);

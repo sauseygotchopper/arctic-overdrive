@@ -73,6 +73,13 @@ export class SledPhysics {
   airControlScale = 1;
   /** Seconds left of a crash: no throttle, rider recovering. */
   crashTimer = 0;
+  /**
+   * Trench the track has dug under itself (m) by spinning in soft snow. Lowers the track until
+   * the tunnel and belly pan rest on the snow: that's what "bogged down" is on a real sled.
+   */
+  trench = 0;
+  /** 0..1 how much of the sled's weight is on its belly instead of the track (high-centred). */
+  bog = 0;
   readonly groundNormal = new THREE.Vector3(0, 1, 0);
   /** Hitch point at the rear bumper, sled-local. */
   readonly hitchLocal = new THREE.Vector3();
@@ -159,6 +166,8 @@ export class SledPhysics {
     for (const c of this.contacts) { c.compression = c.prevCompression = 0; c.sink = 0; }
     this.throttleS = 0;
     this.crashTimer = 0;
+    this.trench = 0;
+    this.bog = 0;
   }
 
   /** Spring off the suspension: preload charge 0..1. Fixed impulse, so heavier setups pop lower. */
@@ -228,6 +237,18 @@ export class SledPhysics {
     const steerMax = lerp(p.steerMax, 0.12, smoothstep(0, 32, absV));
     this.steerAngle = this.steerS * steerMax;
 
+    // ---- trenching ----
+    // A spinning track in soft snow shovels it out from underneath instead of pushing (the classic
+    // "dig a hole" failure). It digs fastest when slow; moving, gentle throttle, or rocking the sled
+    // side to side packs the trench walls and lets the track climb back up.
+    const soft = smoothstep(0.08, 0.3, this.surface.sinkDepth);
+    // digging grows with the square of throttle: pinning it buries you, feathering it doesn't
+    const spin = this.trackSlip * this.throttleS * this.throttleS;
+    const dig = soft * spin * smoothstep(7, 1.5, absV) * 0.32;
+    const rock = Math.min(6, (Math.abs(this.leanXS - lx) + Math.abs(this.leanZS - lz)) / dt);
+    const climb = absV * 0.05 + rock * 0.035 + (this.throttleS < 0.5 ? 0.08 : 0) + (this.reversing ? 0.06 : 0) + (1 - soft) * 0.6;
+    this.trench = clamp(this.trench + (dig - climb) * dt, 0, 0.32);
+
     // ---- suspension rays ----
     const world = this.phys.world;
     let grounded = 0;
@@ -253,8 +274,11 @@ export class SledPhysics {
 
       // sinking: slow + heavy + small footprint sinks deeper; speed planes you up
       let sinkT = sinkTarget(s, absV, p.flotation, c.load > 0 ? c.load / c.nominalLoad : 1);
-      if (!c.isSki && c.slip > 0.5 && s.sinkDepth > 0.1) sinkT += s.sinkDepth * 0.3 * (c.slip - 0.5); // trenching from wheelspin
       sinkT = Math.min(sinkT, s.sinkDepth * 1.4);
+      if (!c.isSki) sinkT += this.trench * smoothstep(0.05, 0.2, s.sinkDepth);
+      // can't sink past the point where the belly pan sits on the snow; keeps the contact "grounded"
+      // (otherwise a buried sled counts as airborne)
+      sinkT = Math.min(sinkT, c.maxLen - c.travel * 0.42 - 0.02);
       c.sink += (sinkT - c.sink) * Math.min(1, dt * (sinkT > c.sink ? 2.2 : 4));
 
       const bump = s.roughness > 0 ? s.roughness * bumpNoise(c.hitPoint.x, c.hitPoint.z) : 0;
@@ -276,6 +300,11 @@ export class SledPhysics {
       body.applyImpulseAtPoint(scale(this.up, F * dt), origin, true);
     }
     if (grounded > 0) nAvg.normalize(); else nAvg.copy(this.up);
+    // high-centring: once the track is down ~0.4 m the tunnel/belly pan carries the weight
+    let bellyDepth = 0;
+    for (const c of this.contacts) if (!c.isSki) bellyDepth += c.sink / (c.maxLen - c.travel * 0.42);
+    bellyDepth /= 4;
+    this.bog += (smoothstep(0.6, 0.95, bellyDepth) - this.bog) * Math.min(1, dt * 3);
     this.groundNormal.copy(nAvg);
     if (trackGrounded === 0) {
       const ski = this.contacts.find((c) => c.grounded);
@@ -306,7 +335,8 @@ export class SledPhysics {
       : p.idleRpm + shiftRatio * 2500;
     rpmTarget = Math.max(rpmTarget, lerp(p.idleRpm, p.peakRpm, smoothstep(0.1, 0.9, shiftRatio)) * (thr > 0.02 ? 1 : 0.7));
     rpmTarget += (p.maxRpm - rpmTarget) * smoothstep(0.85, 1.0, shiftRatio) * thr;
-    rpmTarget += freeSpin * thr * 900;
+    rpmTarget += freeSpin * thr * 900 * (1 - this.bog);
+    rpmTarget -= this.bog * thr * 1800; // engine labours against a buried track
     rpmTarget = Math.min(rpmTarget, p.maxRpm + 200);
     this.rpm += (rpmTarget - this.rpm) * Math.min(1, dt * (rpmTarget > this.rpm ? 9 : 4));
 
@@ -344,12 +374,21 @@ export class SledPhysics {
         // leaning into the turn makes the inside ski bite (carving)
         const carve = clamp(this.leanXS * Math.sign(this.steerS || 1), 0, 1);
         latMu *= 1 + carve * 0.35;
+      } else {
+        // a spinning track can't hold sideways as well (friction circle): power slides on hardpack
+        latMu *= 1 - 0.45 * c.slip * (1 - soft);
       }
+      // keel: a ski or track sunk into soft snow sits in its own groove and has to plough the wall
+      // aside to move sideways, so sunk contacts track straight rather than skate
+      const keel = smoothstep(0.02, c.isSki ? 0.12 : 0.18, c.sink);
+      latMu += keel * (c.isSki ? 0.6 : 1.3);
       const latNeed = -vLat * mEff;
       const latMax = latMu * N * dt;
       const latJ = clamp(latNeed, -latMax, latMax);
-      // apply lateral force near roll centre (not at the snow) so the sled doesn't trip over itself
-      const ap = _v.copy(pt).lerp(this.position, 0.55);
+      // apply lateral force at the contact's fore/aft position (so the rear resists yaw with its full
+      // lever arm) but lifted toward the centre of mass so the sled doesn't trip over itself
+      const lift = (this.position.x - pt.x) * this.up.x + (this.position.y - pt.y) * this.up.y + (this.position.z - pt.z) * this.up.z;
+      const ap = _v.copy(pt).addScaledVector(this.up, lift * 0.55);
       body.applyImpulseAtPoint(scale(_r, latJ), ap, true);
 
       // longitudinal: drive (track), brake, rolling + sink drag
@@ -360,7 +399,7 @@ export class SledPhysics {
         const share = trackLoad > 0 ? N / trackLoad : 0;
         const softness = smoothstep(0.05, 0.3, s.sinkDepth);
         const mu = s.grip * lerp(1, p.powderTraction, softness);
-        const cap = mu * N;
+        const cap = mu * N * (1 - 0.6 * this.bog);
         const want = driveF * share;
         const applied = clamp(want, -cap, cap);
         c.slip = cap > 0 ? clamp((Math.abs(want) - cap) / cap, 0, 1) : 1;
@@ -377,6 +416,16 @@ export class SledPhysics {
       body.applyImpulseAtPoint(scale(_f, longF * dt), ap, true);
     }
     this.trackSlip = trackGrounded > 0 ? slipSum / trackGrounded : 1;
+
+    // belly pan dragging on the snow when high-centred
+    if (this.bog > 0.01) {
+      const vh = _v.copy(this.velocity).addScaledVector(nAvg, -this.velocity.dot(nAvg));
+      const vhLen = vh.length();
+      if (vhLen > 1e-3) {
+        const J = Math.min(this.bog * p.mass * GRAVITY * 0.5 * dt, vhLen * p.mass);
+        body.applyImpulse(scale(vh, -J / vhLen), true);
+      }
+    }
     this.trackSpeed += ((trackGrounded > 0 ? vLongBody + this.trackSlip * 15 * Math.sign(driveF || 1) : thr * 25) - this.trackSpeed) * Math.min(1, dt * 6);
 
     // ---- aero + surface speed caps ----
@@ -397,7 +446,13 @@ export class SledPhysics {
     if (grounded >= 3) {
       // steering assist toward the bicycle-model yaw rate, limited by front-ski grip
       const frontGrip = (this.contacts[0].surface.lateralGrip + this.contacts[1].surface.lateralGrip) / 2;
-      const desiredYaw = (-vLongBody * Math.tan(this.steerAngle)) / 1.6;
+      // never ask for a tighter turn than the snow can hold: yaw rate × speed is the lateral
+      // acceleration, and it can't exceed grip × g (asking for more spun the back end round)
+      const skiKeel = (smoothstep(0.02, 0.12, this.contacts[0].sink) + smoothstep(0.02, 0.12, this.contacts[1].sink)) * 0.5;
+      const carve = clamp(this.leanXS * Math.sign(this.steerS || 1), 0, 1);
+      const latG = (frontGrip + skiKeel * 0.4) * (0.85 + p.handling * 0.35) * (1 + carve * 0.3) * GRAVITY;
+      const yawLimit = latG / Math.max(absV, 2);
+      const desiredYaw = clamp((-vLongBody * Math.tan(this.steerAngle)) / 1.6, -yawLimit, yawLimit);
       const yawNow = angVel.dot(this.up);
       const towK = p.mass / (p.mass + this.towMass * 1.6); // a trailer resists rotation: wider turns
       const yawT = (desiredYaw - yawNow) * I * 3.5 * towK * clamp(frontGrip * 1.3, 0.15, 1) * smoothstep(0.5, 4, absV);

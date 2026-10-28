@@ -86,6 +86,8 @@ export class Trailer {
   private spillChance = 0.9;
   private damageMult = 1;
   private cargoTop = 0;
+  /** Seconds after placement during which spin is damped and a tip-over is not counted. */
+  private settle = 0;
 
   constructor(private phys: PhysicsWorld, private terrain: TerrainData, private loose: LooseCargo, public upgrades: TrailerUpgrades, pos: THREE.Vector3, yaw: number) {
     const R = phys.R;
@@ -216,20 +218,40 @@ export class Trailer {
     this.sled = null;
   }
 
-  /** Place the trailer straight behind the sled's hitch (spawn / recover). */
+  /**
+   * Place the trailer straight behind the sled's hitch (spawn / recover), sitting on the snow:
+   * skis follow the slope under it and the tongue reaches exactly to the hitch, so the joint
+   * starts with no gap to snap closed (a gap is what used to fling it upside down).
+   */
   placeBehind(sled: SledPhysics) {
     sled.readState();
+    const t = this.terrain;
     const hitchW = sled.hitchLocal.clone().applyQuaternion(sled.quaternion).add(sled.position);
-    const yaw = Math.atan2(sled.forward.x, sled.forward.z);
-    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    const flat = new THREE.Vector3(sled.forward.x, 0, sled.forward.z);
+    if (flat.lengthSq() < 1e-4) flat.set(Math.sin(sled.quaternion.y * 2), 0, 1);
+    flat.normalize();
+    const L = this.anchorLocal.z;
+    const cx = hitchW.x - flat.x * L, cz = hitchW.z - flat.z * L;
+    // ground normal right under the deck, blended with the sled's attitude: a trail cut across a
+    // steep hillside is flat where the sled sits even though the hill beyond it is not
+    const e = 0.6;
+    const n = new THREE.Vector3(t.heightAt(cx - e, cz) - t.heightAt(cx + e, cz), 2 * e, t.heightAt(cx, cz - e) - t.heightAt(cx, cz + e)).normalize();
+    n.lerp(sled.up.y > 0.5 ? sled.up : new THREE.Vector3(0, 1, 0), 0.5).normalize();
+    const centre = new THREE.Vector3(cx, t.heightAt(cx, cz) + BASE + this.travel * 0.55, cz);
+    // forward points from the deck up the tongue to the hitch; up stays as close to the slope as it can
+    const fwd = hitchW.clone().sub(centre.clone().addScaledVector(n, this.anchorLocal.y)).normalize();
+    const up = n.clone().addScaledVector(fwd, -n.dot(fwd)).normalize();
+    const left = new THREE.Vector3().crossVectors(up, fwd);
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(left, up, fwd));
     const pos = hitchW.clone().sub(this.anchorLocal.clone().applyQuaternion(q));
-    pos.y = Math.max(pos.y, this.terrain.heightAt(pos.x, pos.z) + 0.45);
     this.body.setTranslation(pos, true);
     this.body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
     this.body.setLinvel(sled.body.linvel(), true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    for (const c of this.contacts) { c.compression = c.prevCompression = 0; c.sink = 0; }
     this.flipped = false;
     this.flipTime = 0;
+    this.settle = 0.8;
     this.readState();
     this.prevPos.copy(this.position);
     this.prevQuat.copy(this.quaternion);
@@ -333,8 +355,15 @@ export class Trailer {
       this.airTime = 0;
     }
 
+    if (this.settle > 0) {
+      this.settle -= dt;
+      const w = body.angvel();
+      const k = Math.exp(-dt * 12);
+      body.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true);
+    }
+
     // tipped over → load spills (once per flip)
-    if (this.up.y < 0.15) {
+    if (this.up.y < 0.15 && this.settle <= 0) {
       this.flipTime += dt;
       if (this.flipTime > 0.3 && !this.flipped) {
         this.flipped = true;
@@ -371,8 +400,10 @@ export class Trailer {
     };
     const yawLim = THREE.MathUtils.degToRad(b.hitchYawLimitDeg);
     const hitYaw = limit(this.hitchYaw, yawLim, sUp, 22000);
-    limit(-pitch, THREE.MathUtils.degToRad(b.hitchPitchLimitDeg), s.right, 14000);
-    limit(roll, THREE.MathUtils.degToRad(b.hitchRollLimitDeg), s.forward, 9000);
+    // signs: a +θ turn about s.right gives pitch = +sinθ, a +θ turn about s.forward gives roll = −sinθ,
+    // so these push back toward the sled's attitude (they used to push further over and flip it)
+    limit(pitch, THREE.MathUtils.degToRad(b.hitchPitchLimitDeg), s.right, 14000);
+    limit(-roll, THREE.MathUtils.degToRad(b.hitchRollLimitDeg), s.forward, 9000);
     if (torque.lengthSq() > 0) {
       this.body.applyTorqueImpulse({ x: torque.x * dt, y: torque.y * dt, z: torque.z * dt }, true);
       s.body.applyTorqueImpulse({ x: -torque.x * dt, y: -torque.y * dt, z: -torque.z * dt }, true);

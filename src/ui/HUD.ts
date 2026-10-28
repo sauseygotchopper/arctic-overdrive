@@ -17,6 +17,7 @@ export class HUD {
   private fpsAcc = 0;
   private fpsFrames = 0;
   private lastSurface = '';
+  private bogTime = 0;
   private map: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private trails: { x: number; z: number }[][];
@@ -38,6 +39,7 @@ export class HUD {
       <div class="hud-toast"></div>
       <div class="hud-air"></div>
       <div class="hud-recover">Stuck or flipped? Press <kbd>R</kbd> to recover</div>
+      <div class="hud-bogged"><b>Bogged down</b><span>Rock side to side <kbd>←</kbd><kbd>→</kbd>, back out <kbd>S</kbd>, or feather the throttle</span></div>
       <div class="hud-trailer">
         <div class="t-title">TRAILER <span class="t-flags"></span></div>
         <div class="t-line"></div>
@@ -104,6 +106,8 @@ export class HUD {
     this.q('.hud-weight').textContent = `${fmt(p.params.mass)} kg${t ? ` + ${fmt(t.mass)} kg trailer` : ''}`;
     this.q('.hud-alt b').textContent = `${fmt(p.position.y + 1200)} m`;
     this.q('.hud-recover').classList.toggle('show', sled.flippedTime > 1.5);
+    this.bogTime = p.bog > 0.6 && Math.abs(p.speed) < 1.5 ? this.bogTime + dt : 0;
+    this.q('.hud-bogged').classList.toggle('show', this.bogTime > 0.8 && sled.flippedTime < 1.5);
     this.q('.hud-air').textContent = st.inAir && st.airTime > 0.4 ? `AIR ${st.airTime.toFixed(1)}s` : '';
     const pop = this.q('.hud-pop');
     pop.classList.toggle('show', st.rider.crouch > 0.02);
