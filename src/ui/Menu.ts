@@ -46,13 +46,11 @@ export class Menu {
     const g = this.game;
     const sd = g.save.data;
     const lvl = riderLevel(sd.xp);
-    const goal = g.progression.nextGoal();
-    const goalHtml = goal ? (() => {
-      const reqs = g.progression.requirements(goal);
-      const unlocked = reqs.every((r) => r.have >= r.need);
-      const line = unlocked ? `Unlocked · $${fmt(goal.price)}${sd.currency >= goal.price ? ' – you can afford it!' : ` (need $${fmt(goal.price - sd.currency)} more)`}` : reqs.filter((r) => r.have < r.need).map((r) => `${r.label} ${fmt(r.have)}/${fmt(r.need)}`).join(' · ');
-      return `<div class="goal"><div class="goal-h">Next sled · T${goal.tier} ${goal.brand} ${goal.model}</div><div class="goal-l">${line}</div></div>`;
-    })() : '<div class="goal"><div class="goal-h">Every sled in the stable is yours.</div></div>';
+    const goal = g.progression.goalProgress();
+    // next-sled progress sits at the top of the menu
+    const goalHtml = goal
+      ? `<div class="m-goal" title="${goal.missing}"><div class="m-goal-h"><span>Next sled · T${goal.spec.tier} ${goal.spec.brand} ${goal.spec.model}</span><b>${goal.ready ? 'Ready to buy!' : `${Math.round(goal.frac * 100)}%`}</b></div><div class="m-goal-bar"><span style="width:${goal.frac * 100}%"></span></div><div class="m-goal-l">${goal.ready ? 'Head to the Dealership' : goal.missing}</div></div>`
+      : '<div class="m-goal"><div class="m-goal-h"><span>Every sled in the stable is yours</span><b>100%</b></div><div class="m-goal-bar"><span style="width:100%"></span></div></div>';
     const head = `
       <div class="menu-side">
         <div class="logo">ARCTIC <em>OVERDRIVE</em></div>
@@ -60,11 +58,9 @@ export class Menu {
         <div class="wallet"><b>$${fmt(sd.currency)}</b><span>Lv ${lvl.level} · ${fmt(sd.xp)} XP</span></div>
         <div class="lvl"><span style="width:${(lvl.into / lvl.span) * 100}%"></span></div>
         <div class="side-btns">
-          <button data-garage="garage">Garage</button>
+          <button data-garage="upgrades">Garage</button>
           <button data-garage="dealer">Dealership</button>
-          <button data-garage="style">Paint &amp; Gear</button>
         </div>
-        ${goalHtml}
         <div class="menu-help">Mouse to choose · <b>Esc</b> back / pause in game</div>
       </div>`;
     if (this.view === 'modes') {
@@ -86,7 +82,7 @@ export class Menu {
             ${m.available ? `<div class="card-best">${best}</div><div class="card-reward">${reward}</div>` : `<div class="card-soon">Coming in ${m.comingIn}</div>`}
           </button>`;
       }).join('');
-      this.el.innerHTML = `${head}<div class="menu-main"><div class="menu-title">Choose a mode</div><div class="cards">${cards}</div></div>`;
+      this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title">Choose a mode</div><div class="cards">${cards}</div></div>`;
       this.bindSide();
       this.el.querySelectorAll<HTMLButtonElement>('.card[data-mode]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.mode!;
@@ -110,7 +106,7 @@ export class Menu {
             </div>
           </button>`;
       }).join('');
-      this.el.innerHTML = `${head}<div class="menu-main"><div class="menu-title"><button class="back">‹ Back</button>Time Trial</div><div class="courses">${rows}</div></div>`;
+      this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Time Trial</div><div class="courses">${rows}</div></div>`;
       this.bindSide();
       this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
       this.el.querySelectorAll<HTMLButtonElement>('.course').forEach((b) => b.addEventListener('click', () => g.startMode('timeTrial', b.dataset.course)));
@@ -118,7 +114,7 @@ export class Menu {
   }
 
   private bindSide() {
-    this.el.querySelectorAll<HTMLButtonElement>('[data-garage]').forEach((b) => b.addEventListener('click', () => this.game.openGarage(b.dataset.garage as 'garage' | 'dealer' | 'style')));
+    this.el.querySelectorAll<HTMLButtonElement>('[data-garage]').forEach((b) => b.addEventListener('click', () => this.game.openGarage(b.dataset.garage as 'upgrades' | 'dealer')));
   }
 
   // ---------- pause ----------

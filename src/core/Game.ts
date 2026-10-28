@@ -163,7 +163,7 @@ export class Game {
     this.scene.add(this.player.visual.root);
   }
 
-  openGarage(tab: 'dealer' | 'garage' | 'style' | 'trailer' = 'garage') {
+  openGarage(tab: 'dealer' | 'upgrades' = 'upgrades') {
     this.menu.hide();
     this.state = 'garage';
     this.showroom.active = true;
@@ -251,6 +251,10 @@ export class Game {
       p.detachTrailer();
       t.dispose(this.scene);
       if (!silent) this.hud.toast('Trailer unhitched');
+      return;
+    }
+    if (!p.physics.params.canTow) {
+      this.hud.toast('No tow hitch – fit one in Garage › Upgrades › Towing', 3);
       return;
     }
     const t = new Trailer(this.physics, this.terrain, this.loose, { ...this.save.data.trailer.upgrades }, p.physics.position.clone(), 0);

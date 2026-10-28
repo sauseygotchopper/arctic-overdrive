@@ -40,8 +40,14 @@ export interface PartEffects {
   powerPct?: number; topSpeedPct?: number; tractivePct?: number; weightKg?: number; trackLengthIn?: number;
   lugHeightSet?: number; studGrip?: number; springPct?: number; dampingPct?: number; travelFront?: number;
   travelRear?: number; roughAbsorb?: number; skiWidthAdd?: number; skiBitePct?: number; durabilityAdd?: number;
-  peakRpmAdd?: number; maxRpmAdd?: number;
+  peakRpmAdd?: number; maxRpmAdd?: number; towing?: number; hitchYawBonus?: number;
 }
+
+/** Free garage tuning (slider values, units per data/parts.json "tuning"). 0 = factory setting. */
+export interface Tuning { spring: number; compression: number; rebound: number; balance: number; engage: number; gearing: number }
+export const DEFAULT_TUNING: Tuning = { spring: 0, compression: 0, rebound: 0, balance: 0, engage: 0, gearing: 0 };
+export interface TuningDef { id: keyof Tuning; section: string; name: string; min: number; max: number; step: number; unit: string; lo: string; hi: string; desc: string }
+export const TUNING_DEFS = partsData.tuning as TuningDef[];
 export interface PartDef { id: string; slot: string; name: string; desc: string; price: number; tier: number; effects: PartEffects }
 
 export const SLEDS: SledSpec[] = sledData.sleds as SledSpec[];
@@ -77,6 +83,7 @@ export interface SledSetup {
   cargoMass: number;
   parts?: string[];
   livery?: Livery;
+  tuning?: Tuning;
 }
 
 /** Physics values derived from a setup – the single place where specs + parts turn into simulation numbers. */
@@ -100,7 +107,14 @@ export interface SledParams {
   travelFront: number;
   travelRear: number;
   springMult: number;
+  /** Front (skis) and rear (track) spring multipliers from the balance setting. */
+  springFront: number;
+  springRear: number;
   dampMult: number;
+  /** Multiplies the base rebound damping (handling.json). */
+  reboundAdj: number;
+  canTow: boolean;
+  hitchYawBonus: number; // degrees added to the trailer's jackknife limit
   stance: number;
   steerMax: number; // rad at standstill
   handling: number;
@@ -122,7 +136,7 @@ export function combinedEffects(partIds: string[] = []): Required<PartEffects> {
   const e: Required<PartEffects> = {
     powerPct: 0, topSpeedPct: 0, tractivePct: 0, weightKg: 0, trackLengthIn: 0, lugHeightSet: 0, studGrip: 0,
     springPct: 0, dampingPct: 0, travelFront: 0, travelRear: 0, roughAbsorb: 0, skiWidthAdd: 0, skiBitePct: 0,
-    durabilityAdd: 0, peakRpmAdd: 0, maxRpmAdd: 0,
+    durabilityAdd: 0, peakRpmAdd: 0, maxRpmAdd: 0, towing: 0, hitchYawBonus: 0,
   };
   for (const id of partIds) {
     const p = getPart(id);
@@ -138,6 +152,8 @@ export function combinedEffects(partIds: string[] = []): Required<PartEffects> {
 export function deriveParams(setup: SledSetup): SledParams {
   const s = setup.spec;
   const e = combinedEffects(setup.parts);
+  const t = { ...DEFAULT_TUNING, ...setup.tuning };
+  const gear = t.gearing / 100;
   const dryMass = s.dryWeightKg + e.weightKg;
   const mass = dryMass + setup.riderMass + setup.cargoMass;
   const trackLengthIn = s.trackLengthIn + e.trackLengthIn;
@@ -151,10 +167,10 @@ export function deriveParams(setup: SledSetup): SledParams {
     dryMass,
     powerW: s.powerKW * 1000 * (1 + e.powerPct / 100),
     idleRpm: s.idleRpm,
-    engageRpm: s.engageRpm,
+    engageRpm: s.engageRpm + t.engage,
     peakRpm: s.peakRpm + e.peakRpmAdd,
     maxRpm: s.maxRpm + e.maxRpmAdd,
-    topSpeed: (s.topSpeedKmh * (1 + e.topSpeedPct / 100)) / 3.6,
+    topSpeed: (s.topSpeedKmh * (1 + e.topSpeedPct / 100) * (1 - gear * 0.4)) / 3.6,
     trackLengthIn,
     lugHeightIn,
     trackContactLen,
@@ -165,8 +181,13 @@ export function deriveParams(setup: SledSetup): SledParams {
     hardpackDrag: Math.max(0, lugHeightIn - 1.0) * 0.006 + Math.max(0, trackLengthIn - 137) * 0.0002,
     travelFront: s.suspensionTravelFront + e.travelFront,
     travelRear: s.suspensionTravelRear + e.travelRear,
-    springMult: s.springRate * (1 + e.springPct / 100),
-    dampMult: s.damping * (1 + e.dampingPct / 100),
+    springMult: s.springRate * (1 + e.springPct / 100) * (1 + t.spring / 100),
+    springFront: 1 + t.balance / 100,
+    springRear: 1 - t.balance / 200,
+    dampMult: s.damping * (1 + e.dampingPct / 100) * (1 + t.compression / 100),
+    reboundAdj: 1 + t.rebound / 100,
+    canTow: e.towing > 0,
+    hitchYawBonus: e.hitchYawBonus,
     stance: s.skiStance,
     // shorter tracks turn quicker
     steerMax: 0.42 + s.handling * 0.12 + (137 - trackLengthIn) * 0.0012,
@@ -174,7 +195,7 @@ export function deriveParams(setup: SledSetup): SledParams {
     hardGrip: s.hardGrip,
     studGrip: e.studGrip,
     skiBite: 1 + e.skiBitePct / 100,
-    tractiveMult: 1 + e.tractivePct / 100,
+    tractiveMult: (1 + e.tractivePct / 100) * (1 + gear * 0.6),
     roughAbsorb: Math.min(0.8, e.roughAbsorb),
     durability: Math.min(1, Math.max(0.3, s.durability + e.durabilityAdd)),
     dragArea: s.dragArea,

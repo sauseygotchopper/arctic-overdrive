@@ -1,5 +1,5 @@
 import { SaveData, newSledSave } from './SaveSystem';
-import { SLEDS, SledSpec, SledSetup, getSled, getPart, partFits, COSMETICS, RIDER_MASS, Livery } from '../vehicles/SledSpec';
+import { SLEDS, SledSpec, SledSetup, getSled, getPart, partFits, COSMETICS, RIDER_MASS, Livery, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
 import freerideData from '../data/freeride.json';
 
@@ -56,11 +56,25 @@ export class Progression {
   }
 
   /** The setup (spec + fitted parts + livery) the physics and model are built from. */
-  setupFor(sledId: string, extraParts: string[] = [], livery?: Livery, cargoMass = 0): SledSetup {
+  setupFor(sledId: string, extraParts: string[] = [], livery?: Livery, cargoMass = 0, tuning?: Tuning): SledSetup {
     const g = this.garage(sledId);
     const installed = { ...g.installed };
     for (const id of extraParts) { const p = getPart(id); if (p) installed[p.slot] = id; }
-    return { spec: getSled(sledId), riderMass: RIDER_MASS, cargoMass, parts: Object.values(installed), livery: livery ?? g.livery };
+    return {
+      spec: getSled(sledId), riderMass: RIDER_MASS, cargoMass, parts: Object.values(installed),
+      livery: livery ?? g.livery, tuning: tuning ?? { ...DEFAULT_TUNING, ...g.tuning },
+    };
+  }
+
+  /** Tuning is free: just store it. */
+  setTuning(sledId: string, tuning: Tuning) {
+    this.garage(sledId).tuning = { ...tuning };
+    this.onChange();
+  }
+
+  canTow(sledId: string): boolean {
+    const g = this.garage(sledId);
+    return !!g.installed.hitch;
   }
 
   private spend(amount: number): boolean {
@@ -132,6 +146,7 @@ export class Progression {
   }
 
   buyTrailerPart(slot: 'suspension' | 'skis' | 'tieDowns', id: string): string | null {
+    if (!Object.values(this.d.sleds).some((g) => g.installed.hitch)) return 'Fit a tow hitch first';
     const item = (trailerData.upgrades[slot] as { id: string; price: number }[]).find((x) => x.id === id);
     if (!item) return 'Unknown part';
     const key = `${slot}:${id}`;
@@ -143,6 +158,21 @@ export class Progression {
     t.upgrades[slot] = id;
     this.onChange();
     return null;
+  }
+
+  /**
+   * Progress toward the next sled: each requirement and the price count equally, capped at 100%.
+   * Drives the "next sled" bars in the menu and garage.
+   */
+  goalProgress(): { spec: SledSpec; frac: number; ready: boolean; missing: string } | null {
+    const spec = this.nextGoal();
+    if (!spec) return null;
+    const reqs = this.requirements(spec);
+    const parts = [...reqs.map((r) => Math.min(1, r.have / r.need)), Math.min(1, this.d.currency / spec.price)];
+    const frac = parts.reduce((a, b) => a + b, 0) / parts.length;
+    const unmet = reqs.filter((r) => r.have < r.need).map((r) => `${r.label} ${Math.round(r.have).toLocaleString('en-US')}/${r.need.toLocaleString('en-US')}`);
+    if (this.d.currency < spec.price) unmet.push(`$${(spec.price - this.d.currency).toLocaleString('en-US')} more`);
+    return { spec, frac, ready: !unmet.length, missing: unmet.join(' · ') };
   }
 
   /** Cheapest locked/unowned sled the player is working toward (menu hint). */

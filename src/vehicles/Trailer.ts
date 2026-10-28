@@ -384,6 +384,11 @@ export class Trailer {
       return true;
     };
     const yawLim = THREE.MathUtils.degToRad(b.hitchYawLimitDeg);
+    // a braced heavy-duty hitch damps the trailer's swing (less swing-out, fewer jackknifes)
+    if (s.params.hitchYawBonus > 0) {
+      const swing = wRel.dot(sUp);
+      torque.addScaledVector(sUp, -swing * s.params.hitchYawBonus * 60);
+    }
     const hitYaw = limit(this.hitchYaw, yawLim, sUp, 22000);
     limit(-pitch, THREE.MathUtils.degToRad(b.hitchPitchLimitDeg), s.right, 14000);
     limit(roll, THREE.MathUtils.degToRad(b.hitchRollLimitDeg), s.forward, 9000);

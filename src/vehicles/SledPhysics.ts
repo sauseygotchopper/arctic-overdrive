@@ -119,7 +119,7 @@ export class SledPhysics {
     const rearLoad = 0.68 * p.mass * GRAVITY;
     const mk = (x: number, z: number, isSki: boolean, travel: number, load: number, zeta: number): Contact => {
       const sag = 0.42 * travel;
-      const k = (load / sag) * p.springMult;
+      const k = (load / sag) * p.springMult * (isSki ? p.springFront : p.springRear);
       const mEff = load / GRAVITY;
       return {
         local: new THREE.Vector3(x, 0, z), isSki, side: x > 0 ? -1 : 1,
@@ -276,7 +276,7 @@ export class SledPhysics {
       const va = body.velocityAtPoint(origin);
       const compVel = -(va.x * this.up.x + va.y * this.up.y + va.z * this.up.z);
       // stiffer rebound than compression so the rear doesn't buck back up after a hit
-      let F = c.k * comp + c.c * compVel * (compVel < 0 ? H.suspension.reboundMult : 1);
+      let F = c.k * comp + c.c * compVel * (compVel < 0 ? H.suspension.reboundMult * p.reboundAdj : 1);
       if (comp > c.travel) F += c.k * 10 * (comp - c.travel) + c.c * 2 * Math.max(0, compVel); // bump stop
       F = Math.max(0, F);
       c.load = F;

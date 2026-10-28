@@ -85,9 +85,19 @@ export class SledModel implements SledVisual {
     bumper.position.set(0, 0.16, tunnelRear + 0.02);
     bumper.rotation.set(-Math.PI / 2, 0, Math.PI);
     this.root.add(bumper);
-    const hitch = box(0.06, 0.06, 0.14, metal);
-    hitch.position.set(0, 0.1, tunnelRear - 0.05);
-    this.root.add(hitch);
+    if (params.canTow) {
+      // receiver + drop mount + ball under the rear bumper
+      const hitch = box(0.06, 0.06, 0.2, metal);
+      hitch.position.set(0, 0.1, tunnelRear - 0.04);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), metal);
+      ball.position.set(0, 0.155, tunnelRear - 0.12);
+      this.root.add(hitch, ball);
+      if (params.hitchYawBonus > 0) {
+        const brace = box(0.3, 0.03, 0.04, metal);
+        brace.position.set(0, 0.06, tunnelRear + 0.02);
+        this.root.add(brace);
+      }
+    }
     const tail = box(0.12, 0.04, 0.03, new THREE.MeshStandardMaterial({ color: 0xff2020, emissive: 0xff1010, emissiveIntensity: 1.2 }));
     tail.position.set(0, 0.2, tunnelRear + 0.05);
     this.root.add(tail);

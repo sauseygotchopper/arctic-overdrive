@@ -1,4 +1,4 @@
-import { STARTER_SLED, Livery, DEFAULT_LIVERY } from '../vehicles/SledSpec';
+import { STARTER_SLED, Livery, DEFAULT_LIVERY, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 
 /** Per-sled garage state: parts bought, parts fitted (one per slot), cosmetics bought and the livery on it. */
 export interface SledSave {
@@ -6,6 +6,7 @@ export interface SledSave {
   installed: Record<string, string>;
   cosmetics: string[];
   livery: Livery;
+  tuning: Tuning;
 }
 
 /** Versioned localStorage save. Version 2 added per-sled garages and trailer parts. */
@@ -25,7 +26,7 @@ export interface SaveData {
 
 const KEY = 'arctic-overdrive-save';
 
-export const newSledSave = (): SledSave => ({ parts: [], installed: {}, cosmetics: [], livery: { ...DEFAULT_LIVERY } });
+export const newSledSave = (): SledSave => ({ parts: [], installed: {}, cosmetics: [], livery: { ...DEFAULT_LIVERY }, tuning: { ...DEFAULT_TUNING } });
 
 export const DEFAULT_SAVE: SaveData = {
   version: 2,
@@ -85,7 +86,10 @@ function migrate(parsed: any): SaveData {
   };
   // v1 saves started on the crossover: keep it, and add the new starter sled
   if (!d.ownedSleds.includes(STARTER_SLED)) d.ownedSleds = [STARTER_SLED, ...d.ownedSleds];
-  for (const id of d.ownedSleds) d.sleds[id] = { ...newSledSave(), ...d.sleds[id] };
+  for (const id of d.ownedSleds) {
+    d.sleds[id] = { ...newSledSave(), ...d.sleds[id] };
+    d.sleds[id].tuning = { ...DEFAULT_TUNING, ...d.sleds[id].tuning };
+  }
   // v1 trailer upgrades were set from the console: treat them as owned
   for (const [slot, id] of Object.entries(d.trailer.upgrades)) if (!['stock', 'none'].includes(id) && !d.trailer.ownedParts.includes(`${slot}:${id}`)) d.trailer.ownedParts.push(`${slot}:${id}`);
   delete (d as unknown as Record<string, unknown>).upgrades;

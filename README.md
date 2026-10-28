@@ -59,9 +59,13 @@ Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
 A sled is bought with cash once its progress gates are met (own the tier below, XP, medals,
 crystals). Parts (`src/data/parts.json`) change real physics values through one function,
 `deriveParams()` in `src/vehicles/SledSpec.ts`: engine (intake/exhaust/ECU/turbo), clutch gearing,
-track length, lugs, studs, shocks, springs, skis, weight. The garage shows a before/after
-comparison of every stat before you buy. Paint, wraps, race numbers and rider gear are per sled.
-Trailer upgrades are bought in the garage's Trailer tab. Saves are versioned (v2) and older saves
+track length, lugs, studs, shocks, springs, skis, weight, tow hitch. The garage has two tabs:
+**Dealership** and **Upgrades**; Upgrades is split into Engine, Drivetrain, Track, Suspension, Skis,
+Weight, Towing and Paint & Gear sections, and shows a before/after comparison of every stat before you
+buy. Suspension (spring preload, compression, rebound, front/rear balance) and Drivetrain (clutch
+engagement, gearing) also have free tuning sliders (`tuning` in `parts.json`). Towing needs a hitch
+add-on fitted to the sled; the trailer's upgrades live in the same Towing section. A next-sled progress
+bar sits at the top of the menu and garage. Saves are versioned (v2) and older saves
 migrate automatically.
 
 ### Handling & snow
@@ -77,12 +81,12 @@ Every ski, track and trailer runner stamps a persistent rut into a GPU deformati
 packed-snow grid feeds back into physics: riding in an existing rut sinks less.
 
 ### Trailer
-`H` hitches the Haulmaster utility trailer (spherical hitch joint + soft yaw/pitch/roll limits).
+`H` hitches the Haulmaster utility trailer (needs a tow hitch add-on) (spherical hitch joint + soft yaw/pitch/roll limits).
 Cargo adds mass and raises the trailer's centre of gravity: slower acceleration, longer braking,
 wider turns, deeper sinking in powder, swing-out on ice, jackknifes when braking hard while
 turning, tip-overs on sidehills and bad landings (cargo spills; fragile items lose value on hard
 landings and bottom-outs). Tricks are disabled while towing; small jumps still score airtime.
-Upgrades are bought in the garage's Trailer tab (data in `src/data/trailers.json`):
+Upgrades are bought in Garage › Upgrades › Towing once a tow hitch is fitted (data in `src/data/trailers.json`):
 heavy-duty shocks, wide powder skis, ratchet straps / cargo net.
 
 ## Layout
