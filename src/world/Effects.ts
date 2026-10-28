@@ -4,7 +4,27 @@ import { SURFACE_ID } from '../physics/Surfaces';
 import { Trailer } from '../vehicles/Trailer';
 
 const SPRAY_MAX = 2500;
-const FLAKES = 5000;
+const FLAKES = 6000;
+
+const flakeVert = /* glsl */ `
+  attribute float aSize;
+  uniform float uScale;
+  varying float vFade;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * uScale / -mv.z;
+    vFade = smoothstep(0.4, 2.0, -mv.z) * (1.0 - smoothstep(25.0, 40.0, -mv.z));
+    gl_Position = projectionMatrix * mv;
+  }`;
+const flakeFrag = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vFade;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    if (d > 0.5) discard;
+    gl_FragColor = vec4(uColor, smoothstep(0.5, 0.15, d) * uOpacity * vFade);
+  }`;
 
 const sprayVert = /* glsl */ `
   attribute float aLife;
@@ -38,12 +58,12 @@ export class Effects {
   private next = 0;
   private flakes: THREE.Points;
   private flakeVel = new Float32Array(FLAKES);
-  private flakeMat: THREE.PointsMaterial;
+  private flakeMat: THREE.ShaderMaterial;
   sprayColor: THREE.Color;
   snowIntensity = 0.6;
   wind = 0.5;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private maxFlakes = FLAKES) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.sp, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aLife', new THREE.BufferAttribute(this.life, 1).setUsage(THREE.DynamicDrawUsage));
@@ -59,7 +79,9 @@ export class Effects {
     scene.add(this.spray);
 
     const fp = new Float32Array(FLAKES * 3);
+    const fs = new Float32Array(FLAKES);
     for (let i = 0; i < FLAKES; i++) {
+      fs[i] = 0.6 + Math.random() * Math.random() * 2.2;
       fp[i * 3] = (Math.random() - 0.5) * 80;
       fp[i * 3 + 1] = Math.random() * 40;
       fp[i * 3 + 2] = (Math.random() - 0.5) * 80;
@@ -67,8 +89,12 @@ export class Effects {
     }
     const fg = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.BufferAttribute(fp, 3).setUsage(THREE.DynamicDrawUsage));
-    this.flakes = new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.85, depthWrite: false }));
-    this.flakeMat = this.flakes.material as THREE.PointsMaterial;
+    fg.setAttribute('aSize', new THREE.BufferAttribute(fs, 1));
+    this.flakeMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(0xf6f7ff) }, uOpacity: { value: 0.85 }, uScale: { value: 60 } },
+      vertexShader: flakeVert, fragmentShader: flakeFrag, transparent: true, depthWrite: false,
+    });
+    this.flakes = new THREE.Points(fg, this.flakeMat);
     this.flakes.frustumCulled = false;
     scene.add(this.flakes);
   }
@@ -143,6 +169,12 @@ export class Effects {
     }
   }
 
+  /** Flake brightness tracks the light so they don't glow at night. */
+  setFlakeLight(brightness: number, spray = brightness) {
+    this.flakeMat.uniforms.uColor.value.setRGB(0.96, 0.97, 1).multiplyScalar(brightness);
+    this.sprayColor.setRGB(0.92, 0.94, 1).multiplyScalar(spray);
+  }
+
   update(dt: number, camPos: THREE.Vector3) {
     for (let i = 0; i < SPRAY_MAX; i++) {
       if (this.life[i] <= 0) continue;
@@ -162,17 +194,17 @@ export class Effects {
 
     // falling snow wraps around the camera
     this.flakes.visible = this.snowIntensity > 0;
-    this.flakeMat.size = 0.08 + this.wind * 0.006; // streakier flakes in a blizzard
+    this.flakeMat.uniforms.uScale.value = 60 * (1 + this.wind * 0.04); // bigger, streakier flakes in a blizzard
     const fp = this.flakes.geometry.attributes.position as THREE.BufferAttribute;
     const arr = fp.array as Float32Array;
-    const count = Math.floor(FLAKES * this.snowIntensity);
+    const count = Math.floor(this.maxFlakes * Math.min(1, this.snowIntensity));
     this.flakes.geometry.setDrawRange(0, count);
     const t = performance.now() * 0.001;
     for (let i = 0; i < count; i++) {
       const o = i * 3;
       arr[o + 1] -= this.flakeVel[i] * dt;
-      arr[o] += (Math.sin(t + i) * 0.3 + this.wind) * dt;
-      arr[o + 2] += this.wind * 0.35 * dt;
+      arr[o] += (Math.sin(t * 0.7 + i) * 0.35 + this.wind) * dt;
+      arr[o + 2] += Math.cos(t * 0.5 + i * 1.3) * 0.25 * dt;
       const dx = arr[o] - camPos.x, dy = arr[o + 1] - camPos.y, dz = arr[o + 2] - camPos.z;
       if (dx > 40) arr[o] -= 80; else if (dx < -40) arr[o] += 80;
       if (dz > 40) arr[o + 2] -= 80; else if (dz < -40) arr[o + 2] += 80;

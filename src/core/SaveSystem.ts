@@ -1,3 +1,4 @@
+import type { Quality } from './Graphics';
 import { STARTER_SLED, Livery, DEFAULT_LIVERY, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 
 /** Per-sled garage state: parts bought, parts fitted (one per slot), cosmetics bought and the livery on it. */
@@ -17,7 +18,7 @@ export interface SaveData {
   ownedSleds: string[];
   currentSled: string;
   sleds: Record<string, SledSave>;
-  settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; weather: string; camera: string };
+  settings: { quality: Quality; timeOfDay: string; weather: string; camera: string; dayCycle: boolean };
   timeTrials: Record<string, { best: number | null; times: number[]; splits: number[]; medals: string[] }>;
   freeride: { crystals: string[]; viewpoints: string[] };
   delivery: { completed: number; jobs: Record<string, { done: number; bestPay: number; bestTime: number | null }> };
@@ -37,7 +38,7 @@ export const DEFAULT_SAVE: SaveData = {
   ownedSleds: [STARTER_SLED],
   currentSled: STARTER_SLED,
   sleds: { [STARTER_SLED]: newSledSave() },
-  settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase' },
+  settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase', dayCycle: false },
   timeTrials: {},
   freeride: { crystals: [], viewpoints: [] },
   delivery: { completed: 0, jobs: {} },

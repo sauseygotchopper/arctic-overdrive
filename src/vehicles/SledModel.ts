@@ -314,8 +314,8 @@ export class SledModel implements SledVisual {
   }
 
   setHeadlights(on: boolean) {
-    this.headlight.intensity = on ? 60 : 0;
-    this.lampMat.emissiveIntensity = on ? 4 : 0.2;
+    this.headlight.intensity = on ? 22 : 0;
+    this.lampMat.emissiveIntensity = on ? 1.6 : 0.2;
   }
 }
 

@@ -3,16 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#e7e6fb" />
     <title>Arctic Overdrive</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/ui/styles.css" />
   </head>
   <body>
     <div id="app"></div>
+    <!-- Title + loading screen: the cover art is on screen while the game loads, then Play / Settings replace the progress bar (src/ui/Title.ts). -->
     <div id="loader">
-      <div class="logo">ARCTIC <em>OVERDRIVE</em></div>
-      <div class="bar"><span></span></div>
-      <div class="msg">Loading…</div>
+      <figure class="ld-poster">
+        <img src="/src/assets/cover.webp" width="552" height="846" fetchpriority="high"
+          alt="Arctic Overdrive cover art: an orange and black snowmobile throwing up powder, with two rival riders behind it in front of snowy mountains" />
+      </figure>
+      <div class="ld-side">
+        <div class="foot">
+          <div class="row"><span class="label">Warming up the engine</span><span class="pct">0<small>%</small></span></div>
+          <div class="bar"><span></span></div>
+          <div class="msg">Loading…</div>
+        </div>
+        <div class="ld-actions">
+          <button type="button" class="ld-btn ld-play"><span>Play</span><kbd>ENTER</kbd><i>→</i></button>
+          <button type="button" class="ld-btn ld-settings"><span>Settings</span><i>⚙</i></button>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

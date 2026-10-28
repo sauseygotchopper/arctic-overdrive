@@ -12,12 +12,19 @@ export class CameraRig {
   private look = new THREE.Vector3();
   private heading = new THREE.Vector3(0, 0, 1);
   private initialised = false;
-  private baseFov = 68;
+  private baseFov = 62;
+  private prevYaw = 0;
+  private roll = 0;
+  private t = 0;
 
   constructor(readonly camera: THREE.PerspectiveCamera, private terrain: TerrainData) {}
 
   cycle() {
-    this.mode = MODES[(MODES.indexOf(this.mode) + 1) % MODES.length];
+    this.setMode(MODES[(MODES.indexOf(this.mode) + 1) % MODES.length]);
+  }
+
+  setMode(m: CameraMode) {
+    this.mode = MODES.includes(m) ? m : 'chase';
     this.initialised = false;
   }
 
@@ -52,9 +59,10 @@ export class CameraRig {
 
     const far = this.mode === 'far';
     const towing = sled.trailer ? 1 : 0;
-    const dist = (far ? 9.5 : 6.0) + Math.min(speed, 40) * 0.035 + towing * 3.5;
-    const height = (far ? 3.6 : 2.3) + towing * 1.0;
-    const center = root.position.clone().add(new THREE.Vector3(0, 0.9, 0));
+    // low and close like a follow-cam on a rider; pulls back a little with speed
+    const dist = (far ? 9.0 : 5.2) + Math.min(speed, 40) * 0.03 + towing * 3.5;
+    const height = (far ? 3.2 : 1.75) + towing * 1.0;
+    const center = root.position.clone().add(new THREE.Vector3(0, 1.0, 0));
     const desired = center.clone().addScaledVector(this.heading, -dist);
     desired.y += height;
     const ground = this.terrain.heightAt(desired.x, desired.z) + 1.0;
@@ -65,11 +73,24 @@ export class CameraRig {
       this.look.copy(center);
       this.initialised = true;
     }
-    this.pos.lerp(desired, 1 - Math.exp(-dt * 7));
-    this.look.lerp(center.addScaledVector(this.heading, 2.5), 1 - Math.exp(-dt * 12));
+    this.pos.lerp(desired, 1 - Math.exp(-dt * 6));
+    this.look.lerp(center.addScaledVector(this.heading, 3.5), 1 - Math.exp(-dt * 10));
     this.camera.position.copy(this.pos);
+    // faint high-speed buzz
+    this.t += dt;
+    const buzz = THREE.MathUtils.smoothstep(speed, 22, 40) * 0.025;
+    this.camera.position.x += Math.sin(this.t * 37) * buzz;
+    this.camera.position.y += Math.sin(this.t * 29 + 1.3) * buzz;
     this.camera.lookAt(this.look);
-    this.setFov(speed, 14, dt);
+    // bank gently into turns
+    const yaw = Math.atan2(this.heading.x, this.heading.z);
+    let dy = yaw - this.prevYaw;
+    dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    this.prevYaw = yaw;
+    const targetRoll = dt > 0 ? THREE.MathUtils.clamp((dy / dt) * 0.035, -0.06, 0.06) : 0;
+    this.roll += (targetRoll - this.roll) * Math.min(1, dt * 4);
+    this.camera.rotateZ(this.roll);
+    this.setFov(speed, 12, dt);
   }
 
   private setFov(speed: number, extra: number, dt: number) {

@@ -19,6 +19,7 @@ export class Menu {
   readonly el: HTMLDivElement;
   readonly pauseEl: HTMLDivElement;
   private view: 'modes' | 'courses' | 'delivery' | 'snocross' = 'modes';
+  private pauseArgs: [string, boolean] = ['', false];
 
   constructor(private game: Game) {
     this.el = document.createElement('div');
@@ -64,6 +65,7 @@ export class Menu {
         <div class="side-btns">
           <button data-garage="upgrades">Garage</button>
           <button data-garage="dealer">Dealership</button>
+          <button data-settings>Settings</button>
         </div>
         <div class="menu-help">Mouse to choose · <b>Esc</b> back / pause in game</div>
       </div>`;
@@ -187,23 +189,33 @@ export class Menu {
 
   private bindSide() {
     this.el.querySelectorAll<HTMLButtonElement>('[data-garage]').forEach((b) => b.addEventListener('click', () => this.game.openGarage(b.dataset.garage as 'upgrades' | 'dealer')));
+    this.el.querySelector<HTMLButtonElement>('[data-settings]')?.addEventListener('click', () => {
+      this.hide();
+      this.game.openSettings(() => this.show());
+    });
   }
 
   // ---------- pause ----------
 
   showPause(title: string, canRestart: boolean) {
+    this.pauseArgs = [title, canRestart];
     this.pauseEl.innerHTML = `
       <div class="pause-card">
         <div class="pause-title">Paused</div>
         <div class="pause-sub">${title}</div>
         <button data-a="resume" class="primary">Resume</button>
         ${canRestart ? '<button data-a="restart">Restart</button>' : ''}
+        <button data-a="settings">Settings</button>
         <button data-a="menu">Quit to menu</button>
       </div>`;
     this.pauseEl.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => {
       const a = b.dataset.a;
       if (a === 'resume') this.game.setPaused(false);
       if (a === 'restart') { this.game.setPaused(false); this.game.mode?.restart?.(); }
+      if (a === 'settings') {
+        this.hidePause();
+        this.game.openSettings(() => this.showPause(...this.pauseArgs));
+      }
       if (a === 'menu') this.game.toMenu();
     }));
     this.pauseEl.classList.add('show');

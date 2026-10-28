@@ -1,3 +1,5 @@
+<p align="center"><img src="src/assets/cover.webp" alt="Arctic Overdrive cover art" width="360" /></p>
+
 # Arctic Overdrive
 
 Browser snowmobile game — Three.js + Rapier + Vite + TypeScript.
@@ -21,9 +23,13 @@ npm run build    # typecheck + production build
 | Cycle trailer test load | G | D-pad right |
 | Camera (chase / far / hood) | C | Back |
 | Recover (Time Trial: back to last checkpoint) | R | LB |
-| Pause | Esc / P | Start |
+| Pause (resume, restart, settings, quit) | Esc / P | Start |
 | Freeride: time of day / weather | T / Y | D-pad up / R3 |
+| Freeride: day/night cycle on/off | N | |
 | Freeride: photo mode / replay | F / V | D-pad down / L3 |
+
+The cover art (`src/assets/cover.webp`) is the loading and title screen; Settings (graphics, time of day,
+day/night cycle, camera, controls) opens from the title, the mode menu and the pause card (`src/ui/Settings.ts`).
 
 ### Modes
 - **Freeride** – the open valley. 24 hidden frost crystals (light beams show when you're close),
@@ -91,6 +97,14 @@ Every ski, track and trailer runner stamps a persistent rut into a GPU deformati
 (0.25 m resolution on high quality) that the terrain shader shades as real grooves. A matching
 packed-snow grid feeds back into physics: riding in an existing rut sinks less.
 
+### Deep snow
+A sunk ski or track sits in its own groove, so in soft snow the sled tracks straight and turns by
+carving (lean into the turn) rather than skating sideways. Turns are capped at what the snow can hold,
+and a spinning track loses some side grip on hardpack (power slides). Pinning the throttle while
+slow in powder makes the track dig a trench under itself until the belly pan rests on the snow:
+you're bogged. Rock side to side, back out (hold S), or feather the throttle to climb out; R always recovers.
+Heavy trailer loads bog much more easily than a solo sled.
+
 ### Trailer
 `H` hitches the Haulmaster utility trailer (needs a tow hitch add-on) (spherical hitch joint + soft yaw/pitch/roll limits).
 Cargo adds mass and raises the trailer's centre of gravity: slower acceleration, longer braking,
@@ -100,13 +114,25 @@ landings and bottom-outs). Tricks are disabled while towing; small jumps still s
 Upgrades are bought in Garage › Upgrades › Towing once a tow hitch is fitted (data in `src/data/trailers.json`):
 heavy-duty shocks, wide powder skis, ratchet straps / cargo net.
 
+### Graphics
+Stylised alpine look: gradient sky with sun/moon and drifting clouds, a continuous 24 h lighting
+script (`src/world/Sky.ts`) where the sky-derived environment map supplies most of the ambient light
+(lavender shade on snow), distance haze, three rings of distant peaks, snow sparkle, fading track
+marks, a gondola line, lit lamp posts and a small rail/box park (`src/world/Resort.ts`).
+Presets live in `src/core/Graphics.ts` and are picked in the pause menu (the game reloads):
+- **Low** — no shadows or post-processing, fewer snowflakes, no lamp lights.
+- **Medium** — 1024 shadows, bloom, colour grade + vignette, speed blur, 2 lamp lights.
+- **High** — soft 2048 shadows, GTAO, bloom, sun shafts, speed blur, 6 lamp lights.
+On every preset the pixel ratio drops automatically (down to 60%) if frames run longer than ~19 ms.
+
 ## Layout
 - `src/core` — game loop (fixed 60 Hz physics + interpolated rendering), input, camera, save
 - `src/physics` — Rapier world, terrain heightfield, surface definitions
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
-- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, jumps, sky/weather, effects, snow deformation
-- `src/modes` — GameMode interface, Freeride, TimeTrial, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`
-- `src/ui` — HUD, minimap, menu/pause, garage/dealership, showroom (3D garage scene), styles
+- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, jumps, sky/weather, mountains, resort, track marks, effects, snow deformation
+- `src/render` — post-processing chain
+- `src/modes` — GameMode interface, Freeride, TimeTrial, Snocross, Delivery, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`
+- `src/ui` — HUD (with minimap), title/loading screen (`Title.ts`), mode menu and pause card (`Menu.ts`), settings panel (`Settings.ts`), garage/dealership, showroom (3D garage scene), styles
 - `src/core/Progression.ts` — every purchase/unlock/install rule
 - `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`
 

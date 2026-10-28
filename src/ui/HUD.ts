@@ -16,26 +16,35 @@ export interface ResultsData {
   actions: { label: string; key: string; primary?: boolean; run: () => void }[];
 }
 
-/** Driving HUD: speed, RPM, surface, weight, trailer, tricks/combo, wallet. Plain DOM, updated per frame. */
+/**
+ * Driving HUD: zone name top-left, menu + wallet top-right, minimap with altitude and clock bottom-left, big speed
+ * readout bottom-right; trick/combo feedback centred, plus the mode overlays (objective, countdown, standings,
+ * results). Plain DOM.
+ */
 export class HUD {
   readonly el: HTMLDivElement;
+  onMenu: () => void = () => {};
   private q: <T extends HTMLElement = HTMLElement>(s: string) => T;
   private toastTimer = 0;
   private bannerTimer = 0;
   private fpsAcc = 0;
   private fpsFrames = 0;
   private lastSurface = '';
+  private bogTime = 0;
 
   constructor(parent: HTMLElement) {
     this.el = document.createElement('div');
     this.el.className = 'hud';
     this.el.innerHTML = `
       <div class="hud-tl">
-        <div class="hud-surface"><span class="dot"></span><span class="name">—</span></div>
-        <div class="hud-weight"></div>
-        <div class="hud-fps">-- fps</div>
+        <div class="hud-zone"><span class="name">—</span><span class="dot"></span></div>
+        <div class="hud-sub"><span class="hud-weight"></span><span class="hud-fps">-- fps</span></div>
       </div>
-      <div class="hud-tr"><div class="hud-wallet"></div><div class="hud-standings"></div></div>
+      <div class="hud-tr">
+        <button class="hud-menu" type="button"><span class="burger"><i></i><i></i><i></i></span>MENU<kbd>ESC</kbd></button>
+        <div class="hud-wallet"></div>
+        <div class="hud-standings"></div>
+      </div>
       <div class="hud-objective"><div class="o-title"></div><div class="o-main"></div><div class="o-sub"></div></div>
       <div class="hud-countdown"></div>
       <div class="hud-warning"></div>
@@ -46,14 +55,19 @@ export class HUD {
       <div class="hud-toast"></div>
       <div class="hud-air"></div>
       <div class="hud-recover">Stuck or flipped? Press <kbd>R</kbd> to recover</div>
+      <div class="hud-bogged"><b>Bogged down</b><span>Rock side to side <kbd>←</kbd><kbd>→</kbd>, back out <kbd>S</kbd>, or feather the throttle</span></div>
       <div class="hud-trailer">
         <div class="t-title">TRAILER <span class="t-flags"></span></div>
         <div class="t-line"></div>
         <div class="t-bar"><span></span></div>
       </div>
+      <div class="hud-bl">
+        <div class="hud-alt"><b>0 m</b><span class="clock">--:--</span></div>
+      </div>
       <div class="hud-br">
         <div class="hud-pop"><span></span></div>
-        <div class="hud-speed"><span class="val">0</span><span class="unit">km/h</span></div>
+        <label>SPEED</label>
+        <div class="hud-speed"><span class="val">0</span><span class="unit">KM/H</span></div>
         <div class="hud-rpm"><div class="fill"></div></div>
         <div class="hud-rpm-text">0 rpm</div>
       </div>
@@ -63,6 +77,7 @@ export class HUD {
       </div>`;
     parent.appendChild(this.el);
     this.q = <T extends HTMLElement = HTMLElement>(s: string) => this.el.querySelector(s) as T;
+    this.q('.hud-menu').addEventListener('click', () => this.onMenu());
   }
 
   toast(text: string, seconds = 2) {
@@ -165,13 +180,18 @@ export class HUD {
   }
 
   setWallet(currency: number, xp: number) {
-    this.q('.hud-wallet').innerHTML = `<b>$${fmt(currency)}</b><span>${fmt(xp)} XP</span>`;
+    this.q('.hud-wallet').innerHTML = `<label>CASH</label><b>$${fmt(currency)}</b><span>${fmt(xp)} XP</span>`;
+  }
+
+  setClock(text: string) {
+    this.q('.hud-alt .clock').textContent = text;
   }
 
   update(sled: Sled, dt: number) {
     const p = sled.physics;
     const st = sled.stunts;
-    this.q('.hud-speed .val').textContent = String(Math.round(Math.abs(p.speed) * 3.6));
+    const kmh = Math.round(Math.abs(p.speed) * 3.6);
+    this.q('.hud-speed .val').textContent = String(kmh);
     const rpmFrac = Math.min(1, p.rpm / p.params.maxRpm);
     const fill = this.q('.hud-rpm .fill');
     fill.style.transform = `scaleX(${rpmFrac.toFixed(3)})`;
@@ -179,12 +199,15 @@ export class HUD {
     this.q('.hud-rpm-text').textContent = `${Math.round(p.rpm / 100) * 100} rpm${p.reversing ? ' · R' : ''}`;
     if (this.lastSurface !== p.surface.name) {
       this.lastSurface = p.surface.name;
-      this.q('.hud-surface .name').textContent = p.surface.name;
-      this.q('.hud-surface .dot').style.background = p.surface.color;
+      this.q('.hud-zone .name').textContent = p.surface.name;
+      this.q('.hud-zone .dot').style.background = p.surface.color;
     }
     const t = sled.trailer;
-    this.q('.hud-weight').textContent = `${fmt(p.params.mass)} kg${t ? ` + trailer ${fmt(t.mass)} kg` : ''}`;
+    this.q('.hud-weight').textContent = `${fmt(p.params.mass)} kg${t ? ` + ${fmt(t.mass)} kg trailer` : ''}`;
+    this.q('.hud-alt b').textContent = `${fmt(p.position.y + 1200)} m`;
     this.q('.hud-recover').classList.toggle('show', sled.flippedTime > 1.5);
+    this.bogTime = p.bog > 0.6 && Math.abs(p.speed) < 1.5 ? this.bogTime + dt : 0;
+    this.q('.hud-bogged').classList.toggle('show', this.bogTime > 0.8 && sled.flippedTime < 1.5);
     this.q('.hud-air').textContent = st.inAir && st.airTime > 0.4 ? `AIR ${st.airTime.toFixed(1)}s` : '';
     const pop = this.q('.hud-pop');
     pop.classList.toggle('show', st.rider.crouch > 0.02);

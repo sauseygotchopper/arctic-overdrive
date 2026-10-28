@@ -23,7 +23,15 @@ import { SaveSystem } from './SaveSystem';
 import { HUD } from '../ui/HUD';
 import { MiniMap } from '../ui/MiniMap';
 import { Menu } from '../ui/Menu';
+import { SettingsMenu } from '../ui/Settings';
+import { Title } from '../ui/Title';
+import { CameraMode } from './CameraRig';
 import { DevTools } from './DevTools';
+import { GRAPHICS, GraphicsPreset } from './Graphics';
+import { Mountains } from '../world/Mountains';
+import { PostFX } from '../render/PostFX';
+import { TrackMarks } from '../world/TrackMarks';
+import { Resort, gondolaLine } from '../world/Resort';
 import { GameMode } from '../modes/GameMode';
 import { Route, RouteStep, corridorsOf } from '../modes/Route';
 import { COURSES, TimeTrial } from '../modes/TimeTrial';
@@ -41,7 +49,7 @@ const IDLE_INPUT: DriveInput = { throttle: 0, brake: 0.45, steer: 0, leanX: 0, l
 export class Game {
   renderer!: THREE.WebGLRenderer;
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(68, 1, 0.2, 6000);
+  camera = new THREE.PerspectiveCamera(64, 1, 0.2, 8000);
   input = new Input();
   save = new SaveSystem();
   physics!: PhysicsWorld;
@@ -50,13 +58,13 @@ export class Game {
   effects!: Effects;
   rig!: CameraRig;
   hud!: HUD;
+  menu!: Menu;
   player!: Sled;
   jumps!: Jumps;
   track!: SnocrossTrack;
   loose!: LooseCargo;
   snow!: SnowDeformation;
   minimap!: MiniMap;
-  menu!: Menu;
   replay!: Replay;
   photo!: PhotoMode;
   progression!: Progression;
@@ -69,15 +77,29 @@ export class Game {
   audioCue?: (name: string) => void;
   private state: 'menu' | 'playing' | 'garage' = 'menu';
   private paused = false;
+  gfx!: GraphicsPreset;
+  post!: PostFX;
+  settings!: SettingsMenu;
+  title!: Title;
   private scenery!: Scenery;
+  private terrainMesh!: TerrainMesh;
+  private marks!: TrackMarks;
+  private resort!: Resort;
   private loadIndex = 1;
   private acc = 0;
   /** Fraction of the way to the next physics step (modes render their own sleds with it). */
   get renderAlpha() { return this.acc / PHYSICS_DT; }
   private last = 0;
   private menuT = 0;
+  // adaptive resolution: trims the pixel ratio when frames run long, restores it when there is headroom
+  private frameAcc = 0;
+  private frameCount = 0;
+  private resScale = 1;
+  /** Full ticks still owed while the opaque title is up, so shaders compile before the first ride. */
+  private warmFrames = 3;
+  private settingsClose: (() => void) | null = null;
 
-  constructor(readonly container: HTMLElement, private onProgress: (msg: string, frac: number) => void) {}
+  constructor(readonly container: HTMLElement, private onProgress: (msg: string, frac: number) => void, private titleRoot: HTMLElement) {}
 
   async init() {
     const q = this.save.data.settings.quality;
@@ -90,33 +112,47 @@ export class Game {
     await initRapier();
     this.physics = new PhysicsWorld();
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: q !== 'low', powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 1.5 : q === 'medium' ? 1.25 : 1));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const g = (this.gfx = GRAPHICS[q]);
+    this.renderer = new THREE.WebGLRenderer({ antialias: g.antialias && !g.post, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, g.pixelRatio));
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = q !== 'low';
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.enabled = g.shadowSize > 0;
+    this.renderer.shadowMap.type = g.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
     await step('Shaping the valley…', 0.15);
     this.terrain = new TerrainData(worldDef as unknown as WorldDef, COURSES.flatMap((c) => corridorsOf(c.route as RouteStep[])));
     for (const c of COURSES) this.routes.set(c.id, new Route(this.terrain, c.route as RouteStep[]));
     await step('Laying down snow…', 0.45);
-    const terrainMesh = new TerrainMesh(this.terrain, q);
-    this.scene.add(terrainMesh.group);
+    this.terrainMesh = new TerrainMesh(this.terrain, g.terrainTex, g.sparkle);
+    this.scene.add(this.terrainMesh.group);
+    this.marks = new TrackMarks(this.terrain, g.trackPoints);
+    this.scene.add(this.marks.group);
     const defRes = q === 'high' ? 4096 : q === 'medium' ? 2048 : 1024;
     this.snow = new SnowDeformation(this.renderer, this.terrain, defRes);
-    terrainMesh.deformUniforms.deformMap.value = this.snow.target.texture;
-    terrainMesh.deformUniforms.deformTexel.value = 1 / defRes;
-    terrainMesh.deformUniforms.deformSlope.value = DEFORM_DEPTH / (2 * (this.terrain.size / defRes));
+    this.terrainMesh.deformUniforms.deformMap.value = this.snow.target.texture;
+    this.terrainMesh.deformUniforms.deformTexel.value = 1 / defRes;
+    this.terrainMesh.deformUniforms.deformSlope.value = DEFORM_DEPTH / (2 * (this.terrain.size / defRes));
     this.physics.addTerrain(this.terrain);
     const err = this.physics.verifyTerrain(this.terrain);
     if (err > 0.5) console.warn(`[terrain] physics/visual height mismatch ${err.toFixed(2)} m`);
 
     await step('Planting the pine forest…', 0.7);
+    this.resort = new Resort(this.terrain, g.lampLights);
+    this.scene.add(this.resort.group);
+    this.physics.addStatic(this.resort.colliders);
+    const [ga, gb] = gondolaLine(this.terrain);
+    const gdir = gb.clone().sub(ga);
+    const glen2 = gdir.lengthSq();
+    const reserved = this.resort.colliders.map((c) => [c.x, c.z]);
     // off-trail course connectors are kept clear of trees
     const clearings = [...this.routes.values()].flatMap((r) => r.connectors);
-    this.scenery = new Scenery(this.terrain, clearings);
+    this.scenery = new Scenery(this.terrain, clearings, (x, z) => {
+      const t = THREE.MathUtils.clamp(((x - ga.x) * gdir.x + (z - ga.y) * gdir.y) / glen2, 0, 1);
+      if (Math.hypot(x - (ga.x + gdir.x * t), z - (ga.y + gdir.y * t)) < 9) return true;
+      return reserved.some(([rx, rz]) => Math.abs(x - rx) < 4 && Math.abs(z - rz) < 4);
+    });
     this.scene.add(this.scenery.group);
     this.physics.addStatic(this.scenery.colliders);
     this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
@@ -128,12 +164,43 @@ export class Game {
     this.physics.addTrimesh(this.track.vertices, this.track.indices);
 
     await step('Fuelling up…', 0.9);
-    this.sky = new SkySystem(this.scene, this.renderer, q === 'high' ? 2048 : q === 'medium' ? 1024 : 0);
+    this.sky = new SkySystem(this.scene, this.renderer, g.shadowSize, g.softShadows);
+    this.sky.cycle = this.save.data.settings.dayCycle;
     this.sky.weather = (this.save.data.settings.weather as Weather) || 'clear';
     this.sky.apply((this.save.data.settings.timeOfDay as TimeOfDay) || 'morning');
-    this.effects = new Effects(this.scene);
+    this.scene.add(new Mountains(this.sky.shared).group);
+    this.post = new PostFX(this.renderer, this.scene, this.camera, g);
+    this.effects = new Effects(this.scene, g.snowflakes);
     this.rig = new CameraRig(this.camera, this.terrain);
     this.hud = new HUD(this.container);
+    this.hud.onMenu = () => this.setPaused(!this.paused);
+    this.rig.setMode((this.save.data.settings.camera as CameraMode) || 'chase');
+    this.settings = new SettingsMenu(this.container, {
+      back: () => this.closeSettings(),
+      quality: () => this.save.data.settings.quality,
+      setQuality: (v) => {
+        if (v === this.save.data.settings.quality) return;
+        this.save.data.settings.quality = v;
+        this.save.save();
+        location.reload();
+      },
+      timeOfDay: () => this.sky.current,
+      setTimeOfDay: (t) => {
+        this.sky.apply(t);
+        this.setDayCycle(false);
+        this.save.data.settings.timeOfDay = t;
+        this.save.save();
+      },
+      dayCycle: () => this.sky.cycle,
+      setDayCycle: (on) => this.setDayCycle(on),
+      camera: () => this.rig.mode,
+      setCamera: (m) => {
+        this.rig.setMode(m);
+        this.save.data.settings.camera = m;
+        this.save.save();
+      },
+      clock: () => this.sky.clock,
+    });
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
     this.loose = new LooseCargo(this.physics, this.scene);
@@ -146,6 +213,7 @@ export class Game {
     this.replay = new Replay(this);
     this.photo = new PhotoMode(this);
     this.menu = new Menu(this);
+    this.title = new Title(this.titleRoot, this);
     this.showroom = new Showroom(this.renderer);
     this.garage = new Garage(this);
     this.applyLighting();
@@ -193,13 +261,17 @@ export class Game {
     this.toMenu();
   }
 
+  /** Per-frame: lamps, headlights, windows and snowfall follow the continuous time of day and the weather. */
   applyLighting() {
-    const night = this.sky.headlights;
-    this.player.visual.setHeadlights(night || this.sky.current === 'overcast' || this.sky.weather === 'blizzard');
-    this.scenery.windowMaterial.emissiveIntensity = night ? 2.5 : this.sky.current === 'golden' ? 0.6 : 0;
-    const fx = WEATHER_FX[this.sky.weather];
-    this.effects.snowIntensity = Math.max(fx.snow, this.sky.current === 'overcast' ? 0.6 : 0);
-    this.effects.wind = fx.wind;
+    const sky = this.sky;
+    const fx = WEATHER_FX[sky.weather];
+    this.player.visual.setHeadlights(sky.headlights || sky.weather === 'blizzard');
+    this.scenery.windowMaterial.emissiveIntensity = Math.max(sky.night * 2.5, sky.current === 'golden' ? 0.6 : 0);
+    this.effects.snowIntensity = Math.min(1, Math.max(fx.snow, 0.2 + sky.cloud * 0.8) + sky.night * 0.15);
+    this.terrainMesh.sparkle.value = sky.sunVisible * 2.5;
+    this.effects.wind = Math.max(fx.wind, 0.4 + sky.cloud * 2.2);
+    this.effects.setFlakeLight(THREE.MathUtils.lerp(1.1, 0.3, sky.night), THREE.MathUtils.lerp(1.0, 0.12, sky.night));
+    this.effects.sprayColor.lerp(sky.hemi.color, sky.night * 0.6); // night spray takes on the blue ambient instead of reading as grey smoke
   }
 
   addRewards(currency: number, xp: number) {
@@ -256,6 +328,30 @@ export class Game {
     else this.menu.hidePause();
   }
 
+  /** Settings panel over whatever opened it; `onClose` brings that screen back. */
+  openSettings(onClose: () => void) {
+    this.settingsClose = onClose;
+    this.settings.show(true);
+  }
+
+  closeSettings() {
+    this.settings.show(false);
+    const cb = this.settingsClose;
+    this.settingsClose = null;
+    cb?.();
+  }
+
+  private toggleDayCycle() {
+    this.setDayCycle(!this.sky.cycle);
+    this.hud.toast(`Day/night cycle ${this.sky.cycle ? 'on' : 'off'}`);
+  }
+
+  setDayCycle(on: boolean) {
+    this.sky.cycle = on;
+    this.save.data.settings.dayCycle = on;
+    this.save.save();
+  }
+
   // ---------- trailer ----------
 
   toggleTrailer(silent = false) {
@@ -271,6 +367,8 @@ export class Game {
       this.hud.toast('No tow hitch – fit one in Garage › Upgrades › Towing', 3);
       return;
     }
+    p.physics.readState();
+    if (p.physics.up.y < 0.6 || p.physics.groundedCount === 0) { this.hud.toast('Get the sled upright on the snow first'); return; }
     const t = new Trailer(this.physics, this.terrain, this.loose, { ...this.save.data.trailer.upgrades }, p.physics.position.clone(), 0);
     this.scene.add(t.root);
     t.setCargo(TEST_LOADS[this.loadIndex]);
@@ -376,12 +474,14 @@ export class Game {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h);
+    this.post?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
 
   start() {
     this.last = performance.now();
+    this.title.ready();
     const frame = (now: number) => {
       requestAnimationFrame(frame);
       const dt = Math.min(0.1, (now - this.last) / 1000);
@@ -393,15 +493,43 @@ export class Game {
 
   private render(dt: number) {
     this.effects.update(dt, this.camera.position);
-    this.sky.follow(this.player.visual.root.position);
+    this.sky.update(dt);
+    this.resort.update(dt, this.sky.lamps, this.player.visual.root.position);
+    this.applyLighting();
+    this.sky.follow(this.player.visual.root.position, this.camera.position);
+    this.hud.setClock(this.sky.clock);
     this.input.endFrame();
     this.snow.flush();
-    this.renderer.render(this.scene, this.camera);
+    this.post.render(dt, { speed: this.player.physics.velocity.length(), sunDir: this.sky.sunDir, sunVisible: this.sky.sunVisible, sunColor: this.sky.sun.color, night: this.sky.night });
+  }
+
+  private adaptResolution(dt: number) {
+    if (dt > 0.1) return; // ignore stalls (tab switches, screenshots)
+    this.frameAcc += dt;
+    this.frameCount++;
+    if (this.frameAcc < 2) return;
+    const avg = this.frameAcc / this.frameCount;
+    this.frameAcc = this.frameCount = 0;
+    const prev = this.resScale;
+    if (avg > 1 / 52) this.resScale = Math.max(0.6, this.resScale - 0.1);
+    else if (avg < 1 / 58 && this.resScale < 1) this.resScale = Math.min(1, this.resScale + 0.05);
+    if (prev !== this.resScale) {
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.gfx.pixelRatio) * this.resScale);
+      this.resize();
+    }
   }
 
   private tick(dt: number) {
+    this.adaptResolution(dt);
     const input = this.input;
     input.update();
+    if (this.title.visible) {
+      if (input.consumePressed('jump') && !this.settings.visible) this.title.hide(); // Space / gamepad A
+      // the title is opaque: nothing to show, so don't burn a GPU on it (after a few warm-up frames)
+      if (this.warmFrames <= 0) { input.endFrame(); return; }
+      this.warmFrames--;
+    }
+    if (this.settings.visible && input.consumePressed('pause')) this.closeSettings();
     const freeride = this.mode?.id === 'freeride';
 
     // ---- photo mode: paused world, free camera ----
@@ -409,6 +537,7 @@ export class Game {
       if (input.consumePressed('photo') || input.consumePressed('pause')) this.photo.exit();
       if (input.consumePressed('timeOfDay')) this.cycleTime();
       if (input.consumePressed('weather')) this.cycleWeather();
+      if (input.consumePressed('dayCycle')) this.toggleDayCycle();
       this.photo.update(dt);
       this.render(0);
       return;
@@ -447,11 +576,16 @@ export class Game {
       return;
     }
 
-    if (input.consumePressed('camera')) this.rig.cycle();
+    if (input.consumePressed('camera')) {
+      this.rig.cycle();
+      this.save.data.settings.camera = this.rig.mode;
+      this.save.save();
+    }
     if (input.consumePressed('reset') && !this.hud.resultsOpen && !this.mode?.recover?.()) this.player.recover();
     if (freeride) {
       if (input.consumePressed('timeOfDay')) this.cycleTime();
       if (input.consumePressed('weather')) this.cycleWeather();
+      if (input.consumePressed('dayCycle')) this.toggleDayCycle();
       if (input.consumePressed('hitch')) this.toggleTrailer();
       if (input.consumePressed('cargo')) this.cycleLoad();
       if (input.consumePressed('photo')) this.photo.enter();
@@ -476,6 +610,7 @@ export class Game {
     this.processEvents();
     if (this.player.flippedTime > 4 && !this.mode?.recover?.()) this.player.recover();
     this.effects.emitFromSled(this.player, dt);
+    this.marks.update(this.player);
     this.snow.stampSled(this.player);
     if (this.player.trailer) {
       this.effects.emitFromTrailer(this.player.trailer, dt);
