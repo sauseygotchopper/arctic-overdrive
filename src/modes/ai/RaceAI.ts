@@ -40,8 +40,8 @@ export class RaceAI {
     if (this.gapAhead < 4) d.throttle = Math.min(d.throttle, 0.35);
     // less skilled riders are a bit ragged: steering noise and the odd lift off the throttle
     const sloppy = 1 - this.skill;
-    d.steer = clamp(d.steer + Math.sin(this.wobble * 3.1) * sloppy * 0.25, -1, 1);
-    if (sloppy > 0.15 && Math.sin(this.wobble * 0.71) > 0.97) d.throttle *= 0.4;
+    d.steer = clamp(d.steer + Math.sin(this.wobble * 3.1) * sloppy * 0.15, -1, 1);
+    if (sloppy > 0.15 && Math.sin(this.wobble * 0.71) > 0.985) d.throttle *= 0.6;
     this.checkStuck(dt);
     return d;
   }
