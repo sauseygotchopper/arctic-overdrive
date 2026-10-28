@@ -13,15 +13,16 @@ export class TerrainMesh {
   readonly group = new THREE.Group();
   readonly material: THREE.MeshStandardMaterial;
 
-  constructor(private data: TerrainData, quality: 'low' | 'medium' | 'high' = 'high') {
-    const texSize = quality === 'low' ? 1024 : 2048;
+  /** Glint strength; the game drives it from sunlight so sparkle only shows in the sun. */
+  readonly sparkle = { value: 0 };
+
+  constructor(private data: TerrainData, texSize = 2048, private sparkleOn = true) {
     const { color, rough } = this.paintTextures(texSize);
     this.material = new THREE.MeshStandardMaterial({
       map: color,
       roughnessMap: rough,
       roughness: 1,
       metalness: 0,
-      envMapIntensity: 0.6,
     });
     this.addDetailTexture(this.material);
     this.buildChunks();
@@ -122,8 +123,8 @@ export class TerrainMesh {
         let r = 0.96, g = 0.975, b = 1.0, ro = 0.92;
         switch (s) {
           case SURFACE_ID.powder: {
-            const sh = 0.985 + v * 0.015;
-            r = 0.95 * sh; g = 0.97 * sh; b = 1.0 * sh; ro = 0.95;
+            const sh = 0.99 + v * 0.01;
+            r = 0.97 * sh; g = 0.98 * sh; b = 1.0 * sh; ro = 0.95;
             break;
           }
           case SURFACE_ID.groomed: {
@@ -131,7 +132,7 @@ export class TerrainMesh {
             const edge = smoothstep(-2.5, 0, td); // bright windrow at the trail edge
             const cord = 0.5 + 0.5 * Math.sin(td * 9); // corduroy ridges parallel to the trail
             const ruts = Math.exp(-Math.pow((td + 2.2) * 1.4, 2)) + Math.exp(-Math.pow((td + 3.6) * 1.4, 2)) * 0.6; // packed sled lines
-            const base = 0.88 - cord * 0.035 - ruts * 0.05 + v * 0.01;
+            const base = 0.92 - cord * 0.025 - ruts * 0.05 + v * 0.008;
             r = base * 0.93 + edge * 0.1; g = base * 0.95 + edge * 0.09; b = base * 0.99 + edge * 0.05;
             ro = 0.72;
             break;
@@ -163,10 +164,10 @@ export class TerrainMesh {
         }
         // exposed rock on steep faces
         const slope = d.slopeAt(x, z);
-        const rock = smoothstep(1.05, 1.35, slope + nz.noise(x / 5, z / 5) * 0.15);
+        const rock = smoothstep(1.3, 1.6, slope + nz.noise(x / 5, z / 5) * 0.15) * 0.85;
         if (rock > 0) {
-          const rv = 0.32 + 0.08 * nz.noise(x / 2, z / 2);
-          r += (rv - r) * rock; g += (rv * 1.02 - g) * rock; b += (rv * 1.08 - b) * rock;
+          const rv = 0.3 + 0.06 * nz.noise(x / 2, z / 2);
+          r += (rv - r) * rock; g += (rv * 1.06 - g) * rock; b += (rv * 1.25 - b) * rock;
           ro += (0.9 - ro) * rock;
         }
         const o = (j * size + i) * 4;
@@ -213,17 +214,38 @@ export class TerrainMesh {
     tex.generateMipmaps = true;
     tex.needsUpdate = true;
     const repeat = this.data.size / 6;
+    if (this.sparkleOn) mat.defines = { SPARKLE: '' };
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.detailMap = { value: tex };
       shader.uniforms.detailRepeat = { value: repeat };
+      shader.uniforms.uSparkle = this.sparkle;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+        .replace('#include <fog_vertex>', '#include <fog_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform float detailRepeat;')
+        .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform float detailRepeat;\nuniform float uSparkle;\nvarying vec3 vWPos;')
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>
           float dA = texture2D(detailMap, vMapUv * detailRepeat).r;
           float dB = texture2D(detailMap, vMapUv * detailRepeat * 0.23).r;
-          diffuseColor.rgb *= mix(0.93, 1.05, dA * 0.6 + dB * 0.4);`,
+          diffuseColor.rgb *= mix(0.965, 1.025, dA * 0.6 + dB * 0.4);`,
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+          #ifdef SPARKLE
+          {
+            // view-dependent glints: a sparse set of cells flash as the camera moves
+            vec3 cell = floor(vWPos * 7.0);
+            float rnd = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+            vec3 vdir = normalize(cameraPosition - vWPos);
+            float tw = fract(rnd * 31.0 + dot(vdir, vec3(9.1, 4.3, 7.7)) * 2.0);
+            float glint = step(0.982, rnd) * smoothstep(0.9, 1.0, tw);
+            float d = length(cameraPosition - vWPos);
+            totalEmissiveRadiance += vec3(1.0, 0.98, 0.95) * uSparkle * glint * smoothstep(35.0, 4.0, d) * step(0.8, diffuseColor.b);
+          }
+          #endif`,
         );
     };
   }

@@ -1,3 +1,5 @@
+import type { Quality } from './Graphics';
+
 /** Versioned localStorage save. Phase 4 fills in currency/garage; the shape is fixed now. */
 export interface SaveData {
   version: 1;
@@ -7,7 +9,7 @@ export interface SaveData {
   currentSled: string;
   upgrades: Record<string, string[]>;
   bestTimes: Record<string, number>;
-  settings: { quality: 'low' | 'medium' | 'high'; timeOfDay: string; camera: string };
+  settings: { quality: Quality; timeOfDay: string; camera: string; dayCycle: boolean };
   tutorialDone: boolean;
   trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string } };
 }
@@ -22,7 +24,7 @@ export const DEFAULT_SAVE: SaveData = {
   currentSled: 'ravik-crossfire-850',
   upgrades: {},
   bestTimes: {},
-  settings: { quality: 'high', timeOfDay: 'morning', camera: 'chase' },
+  settings: { quality: 'high', timeOfDay: 'morning', camera: 'chase', dayCycle: false },
   tutorialDone: false,
   trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' } },
 };

@@ -20,7 +20,9 @@ npm run build    # typecheck + production build
 | Hitch / unhitch trailer | H | D-pad down |
 | Cycle trailer test load | G | D-pad right |
 | Camera (chase / far / hood) | C | Back |
-| Time of day | T | D-pad up |
+| Time of day (morning / golden / overcast / night) | T | D-pad up |
+| Day/night cycle on/off | N | |
+| Pause menu (graphics, time, camera, controls) | Esc / P | Start |
 | Recover | R | LB |
 
 ### Tricks
@@ -40,11 +42,24 @@ Upgrades (garage UI arrives in Phase 4; data in `src/data/trailers.json`):
 heavy-duty shocks, wide powder skis, ratchet straps / cargo net. From the console:
 `__game.setTrailerUpgrade('suspension', 'heavyDuty')`.
 
+### Graphics
+Stylised alpine look: gradient sky with sun/moon and drifting clouds, a continuous 24 h lighting
+script (`src/world/Sky.ts`) where the sky-derived environment map supplies most of the ambient light
+(lavender shade on snow), distance haze, three rings of distant peaks, snow sparkle, fading track
+marks, a gondola line, lit lamp posts and a small rail/box park (`src/world/Resort.ts`).
+Presets live in `src/core/Graphics.ts` and are picked in the pause menu (the game reloads):
+- **Low** — no shadows or post-processing, fewer snowflakes, no lamp lights.
+- **Medium** — 1024 shadows, bloom, colour grade + vignette, speed blur, 2 lamp lights.
+- **High** — soft 2048 shadows, GTAO, bloom, sun shafts, speed blur, 6 lamp lights.
+On every preset the pixel ratio drops automatically (down to 60%) if frames run longer than ~19 ms.
+
 ## Layout
 - `src/core` — game loop (fixed 60 Hz physics + interpolated rendering), input, camera, save
 - `src/physics` — Rapier world, terrain heightfield, surface definitions
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
-- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, sky, effects
+- `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, sky, mountains, resort, track marks, effects
+- `src/render` — post-processing chain
+- `src/ui` — HUD (with minimap), pause menu, styles
 - `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `trailers.json`, `cargo.json`
 
 ## Debugging

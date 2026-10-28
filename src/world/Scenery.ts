@@ -18,7 +18,8 @@ export class Scenery {
   readonly windowMaterial = new THREE.MeshStandardMaterial({ color: 0x334455, emissive: 0xffa040, emissiveIntensity: 0 });
   treeCount = 0;
 
-  constructor(private data: TerrainData) {
+  /** `keepClear` lets other systems (gondola, lamps, park) reserve ground before trees are planted. */
+  constructor(private data: TerrainData, private keepClear: (x: number, z: number) => boolean = () => false) {
     const rand = mulberry32(data.def.seed * 7 + 3);
     this.placeTrees(rand);
     this.placeRocks(rand);
@@ -60,9 +61,9 @@ export class Scenery {
 
   private pineGeometry(): THREE.BufferGeometry {
     const parts: THREE.BufferGeometry[] = [];
-    const trunk = new THREE.CylinderGeometry(0.18, 0.28, 2.2, 6);
+    const trunk = new THREE.CylinderGeometry(0.18, 0.28, 2.2, 5);
     trunk.translate(0, 1.1, 0);
-    paint(trunk, () => [0.27, 0.18, 0.12]);
+    paint(trunk, () => [0.2, 0.13, 0.1]);
     parts.push(trunk);
     const tiers = 4;
     for (let t = 0; t < tiers; t++) {
@@ -70,20 +71,20 @@ export class Scenery {
       const r = 2.3 - f * 1.5;
       const h = 3.4 - f * 0.9;
       const y = 1.6 + t * 1.9;
-      const cone = new THREE.ConeGeometry(r, h, 8, 2, true);
+      const cone = new THREE.ConeGeometry(r, h, 7, 2, true);
       cone.translate(0, y + h / 2, 0);
       const top = y + h;
       paint(cone, (_x, vy) => {
-        const k = smoothstep(y + h * 0.35, top, vy); // snow builds up toward each tier's tip
-        const green = [0.09, 0.2, 0.15];
-        const snow = [0.92, 0.95, 1.0];
+        const k = smoothstep(y + h * 0.45, top, vy) * 0.8; // snow builds up toward each tier's tip
+        const green = [0.035, 0.1, 0.105];
+        const snow = [0.9, 0.93, 1.0];
         return green.map((g, i) => g + (snow[i] - g) * Math.min(1, k * 1.15)) as [number, number, number];
       });
       parts.push(cone);
       // snow-laden underside ring gives a heavier winter silhouette
-      const skirt = new THREE.ConeGeometry(r * 1.02, h * 0.18, 8, 1, true);
+      const skirt = new THREE.ConeGeometry(r * 1.02, h * 0.18, 7, 1, true);
       skirt.translate(0, y + h * 0.09, 0);
-      paint(skirt, () => [0.82, 0.86, 0.92]);
+      paint(skirt, () => [0.86, 0.89, 0.98]);
       parts.push(skirt);
     }
     const g = mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)))!;
@@ -113,6 +114,7 @@ export class Scenery {
         if (d.lakeDistance(px, pz).d < 1.12) continue;
         if (d.def.cabins.some((c) => Math.hypot(px - c.x, pz - c.z) < 20)) continue;
         if (Math.hypot(px - spawn.x, pz - spawn.z) < 25) continue;
+        if (this.keepClear(px, pz)) continue;
         const h = d.heightAt(px, pz);
         if (d.slopeAt(px, pz) > 0.9 || h > 125) continue;
         const sc = 0.75 + rand() * 0.65;
@@ -149,7 +151,7 @@ export class Scenery {
     const nrm = ng.attributes.normal as THREE.BufferAttribute;
     paint(ng, (_x, _y, _z, i) => {
       const ny = nrm.getY(i);
-      return ny > 0.55 ? [0.9, 0.93, 0.97] : [0.33, 0.34, 0.37];
+      return ny > 0.5 ? [0.9, 0.92, 1.0] : [0.24, 0.26, 0.34];
     });
     return ng;
   }

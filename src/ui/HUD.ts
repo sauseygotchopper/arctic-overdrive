@@ -1,27 +1,38 @@
 import { Sled } from '../vehicles/Sled';
+import { TerrainData } from '../world/TerrainData';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+const MAP_RANGE = 260; // metres from the player to the minimap edge
 
-/** Driving HUD: speed, RPM, surface, weight, trailer, tricks/combo, wallet. Plain DOM, updated per frame. */
+/**
+ * Driving HUD: zone name top-left, menu + wallet top-right, heading-up minimap with altitude and
+ * clock bottom-left, big speed readout bottom-right; trick/combo feedback centred. Plain DOM.
+ */
 export class HUD {
   readonly el: HTMLDivElement;
+  onMenu: () => void = () => {};
   private q: <T extends HTMLElement = HTMLElement>(s: string) => T;
   private toastTimer = 0;
   private bannerTimer = 0;
   private fpsAcc = 0;
   private fpsFrames = 0;
   private lastSurface = '';
+  private map: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private trails: { x: number; z: number }[][];
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, terrain: TerrainData) {
     this.el = document.createElement('div');
     this.el.className = 'hud';
     this.el.innerHTML = `
       <div class="hud-tl">
-        <div class="hud-surface"><span class="dot"></span><span class="name">—</span></div>
-        <div class="hud-weight"></div>
-        <div class="hud-fps">-- fps</div>
+        <div class="hud-zone"><span class="name">—</span><span class="dot"></span></div>
+        <div class="hud-sub"><span class="hud-weight"></span><span class="hud-fps">-- fps</span></div>
       </div>
-      <div class="hud-tr"><div class="hud-wallet"></div></div>
+      <div class="hud-tr">
+        <button class="hud-menu" type="button"><span class="burger"><i></i><i></i><i></i></span>MENU<kbd>ESC</kbd></button>
+        <div class="hud-wallet"></div>
+      </div>
       <div class="hud-combo"><div class="names"></div><div class="pts"></div><div class="pose"></div></div>
       <div class="hud-banner"></div>
       <div class="hud-toast"></div>
@@ -32,18 +43,23 @@ export class HUD {
         <div class="t-line"></div>
         <div class="t-bar"><span></span></div>
       </div>
+      <div class="hud-bl">
+        <canvas class="hud-map"></canvas>
+        <div class="hud-alt"><b>0 m</b><span class="clock">--:--</span></div>
+      </div>
       <div class="hud-br">
         <div class="hud-pop"><span></span></div>
-        <div class="hud-speed"><span class="val">0</span><span class="unit">km/h</span></div>
+        <label>SPEED</label>
+        <div class="hud-speed"><span class="val">0</span><span class="unit">KM/H</span></div>
         <div class="hud-rpm"><div class="fill"></div></div>
         <div class="hud-rpm-text">0 rpm</div>
-      </div>
-      <div class="hud-help">
-        <b>W/S</b> throttle/brake · <b>A/D</b> steer (spin in air) · <b>Arrows</b> lean / flip · <b>Space</b> hold+release to pop ·
-        <b>J K L I</b> tricks (+A/D for Can-Can, Nac-Nac) · <b>H</b> trailer · <b>G</b> load · <b>C</b> camera · <b>T</b> time · <b>R</b> recover
       </div>`;
     parent.appendChild(this.el);
     this.q = <T extends HTMLElement = HTMLElement>(s: string) => this.el.querySelector(s) as T;
+    this.q('.hud-menu').addEventListener('click', () => this.onMenu());
+    this.map = this.q<HTMLCanvasElement>('.hud-map');
+    this.ctx = this.map.getContext('2d')!;
+    this.trails = terrain.trailPaths.map((t) => t.pts.filter((_, i) => i % 3 === 0));
   }
 
   toast(text: string, seconds = 2) {
@@ -62,13 +78,18 @@ export class HUD {
   }
 
   setWallet(currency: number, xp: number) {
-    this.q('.hud-wallet').innerHTML = `<b>$${fmt(currency)}</b><span>${fmt(xp)} XP</span>`;
+    this.q('.hud-wallet').innerHTML = `<label>CASH</label><b>$${fmt(currency)}</b><span>${fmt(xp)} XP</span>`;
+  }
+
+  setClock(text: string) {
+    this.q('.hud-alt .clock').textContent = text;
   }
 
   update(sled: Sled, dt: number) {
     const p = sled.physics;
     const st = sled.stunts;
-    this.q('.hud-speed .val').textContent = String(Math.round(Math.abs(p.speed) * 3.6));
+    const kmh = Math.round(Math.abs(p.speed) * 3.6);
+    this.q('.hud-speed .val').textContent = String(kmh);
     const rpmFrac = Math.min(1, p.rpm / p.params.maxRpm);
     const fill = this.q('.hud-rpm .fill');
     fill.style.transform = `scaleX(${rpmFrac.toFixed(3)})`;
@@ -76,11 +97,12 @@ export class HUD {
     this.q('.hud-rpm-text').textContent = `${Math.round(p.rpm / 100) * 100} rpm${p.reversing ? ' · R' : ''}`;
     if (this.lastSurface !== p.surface.name) {
       this.lastSurface = p.surface.name;
-      this.q('.hud-surface .name').textContent = p.surface.name;
-      this.q('.hud-surface .dot').style.background = p.surface.color;
+      this.q('.hud-zone .name').textContent = p.surface.name;
+      this.q('.hud-zone .dot').style.background = p.surface.color;
     }
     const t = sled.trailer;
-    this.q('.hud-weight').textContent = `${fmt(p.params.mass)} kg${t ? ` + trailer ${fmt(t.mass)} kg` : ''}`;
+    this.q('.hud-weight').textContent = `${fmt(p.params.mass)} kg${t ? ` + ${fmt(t.mass)} kg trailer` : ''}`;
+    this.q('.hud-alt b').textContent = `${fmt(p.position.y + 1200)} m`;
     this.q('.hud-recover').classList.toggle('show', sled.flippedTime > 1.5);
     this.q('.hud-air').textContent = st.inAir && st.airTime > 0.4 ? `AIR ${st.airTime.toFixed(1)}s` : '';
     const pop = this.q('.hud-pop');
@@ -115,6 +137,8 @@ export class HUD {
       this.q('.hud-trailer .t-flags').textContent = flags;
     }
 
+    this.drawMap(sled);
+
     if (this.toastTimer > 0 && (this.toastTimer -= dt) <= 0) this.q('.hud-toast').classList.remove('show');
     if (this.bannerTimer > 0 && (this.bannerTimer -= dt) <= 0) this.q('.hud-banner').classList.remove('show');
     this.fpsAcc += dt;
@@ -124,5 +148,46 @@ export class HUD {
       this.fpsAcc = 0;
       this.fpsFrames = 0;
     }
+  }
+
+  /** Heading-up map: trails as soft white lines, the player as an arrow in the middle. */
+  private drawMap(sled: Sled) {
+    const c = this.map;
+    const dpr = Math.min(2, window.devicePixelRatio);
+    const w = c.clientWidth, h = c.clientHeight;
+    if (!w) return;
+    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const g = this.ctx;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const pos = sled.physics.position;
+    const fwd = sled.physics.forward;
+    const yaw = Math.atan2(fwd.x, fwd.z);
+    const s = Math.min(w, h) / 2 / MAP_RANGE;
+    g.save();
+    g.translate(w / 2, h * 0.62);
+    g.rotate(-yaw - Math.PI); // heading up
+    g.scale(-s, s); // facing +z, the player's right is world -x
+    g.lineCap = g.lineJoin = 'round';
+    g.strokeStyle = 'rgba(255,255,255,0.85)';
+    g.lineWidth = 3 / s;
+    for (const pts of this.trails) {
+      g.beginPath();
+      pts.forEach((p, i) => (i ? g.lineTo(p.x - pos.x, p.z - pos.z) : g.moveTo(p.x - pos.x, p.z - pos.z)));
+      g.stroke();
+    }
+    g.restore();
+    // player arrow
+    g.fillStyle = '#ff5a1f';
+    g.strokeStyle = '#fff';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(w / 2, h * 0.62 - 9);
+    g.lineTo(w / 2 + 6.5, h * 0.62 + 7);
+    g.lineTo(w / 2, h * 0.62 + 3.5);
+    g.lineTo(w / 2 - 6.5, h * 0.62 + 7);
+    g.closePath();
+    g.fill();
+    g.stroke();
   }
 }

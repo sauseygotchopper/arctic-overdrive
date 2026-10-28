@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Arctic Overdrive</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
     <div id="loader">
       <div class="logo">ARCTIC <em>OVERDRIVE</em></div>
-      <div class="bar"><span></span></div>
-      <div class="msg">Loading…</div>
+      <div class="foot">
+        <div class="row"><span class="label">Warming up the engine</span><span class="pct">0<small>%</small></span></div>
+        <div class="bar"><span></span></div>
+        <div class="msg">Loading…</div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

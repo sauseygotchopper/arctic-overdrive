@@ -5,7 +5,7 @@ export type Action =
   | 'throttle' | 'brake' | 'steerLeft' | 'steerRight'
   | 'leanLeft' | 'leanRight' | 'leanForward' | 'leanBack'
   | 'jump' | 'trick1' | 'trick2' | 'trick3' | 'trick4'
-  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'photo' | 'hitch' | 'cargo';
+  | 'camera' | 'reset' | 'pause' | 'timeOfDay' | 'dayCycle' | 'photo' | 'hitch' | 'cargo';
 
 export const DEFAULT_KEYS: Record<Action, string[]> = {
   throttle: ['KeyW'],
@@ -25,6 +25,7 @@ export const DEFAULT_KEYS: Record<Action, string[]> = {
   reset: ['KeyR'],
   pause: ['Escape', 'KeyP'],
   timeOfDay: ['KeyT'],
+  dayCycle: ['KeyN'],
   photo: ['KeyF'],
   hitch: ['KeyH'],
   cargo: ['KeyG'],
