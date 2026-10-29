@@ -28,6 +28,7 @@ export class Progression {
       deliveries: this.d.delivery.completed,
       podiums: Object.values(this.d.snocross).reduce((a, r) => a + r.podiums, 0),
       wins: Object.values(this.d.snocross).reduce((a, r) => a + r.wins, 0),
+      specials: this.d.special.completed,
     };
   }
 

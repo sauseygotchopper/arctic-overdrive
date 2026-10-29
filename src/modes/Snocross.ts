@@ -158,6 +158,7 @@ export class Snocross implements GameMode {
       // finished AI riders cruise on
       const input = r.ai.control(dt, racing || this.state === 'done');
       r.sled.fixedUpdate(dt, r.finishTime ? { ...input, throttle: Math.min(input.throttle, 0.4) } : input);
+      r.sled.stunts.events.length = 0;
     }
   }
 

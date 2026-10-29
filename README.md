@@ -50,6 +50,15 @@ day/night cycle, camera, controls) opens from the title, the mode menu and the p
   Five events, one per tier (`src/data/snocross.json`); the AI rides the event's sled with the same
   physics as you, using the RouteFollower plus lanes, traffic avoidance and marshal recovery.
   Grid start, laps, live standings, best lap and payouts by place.
+- **Special Delivery** – unlocks after 2 deliveries. Four contracts (`src/data/special.json`) carry an
+  unmarked package from one cabin to another while agents on snowmobiles chase you
+  (`src/modes/ai/PursuitAI.ts`: lead pursuit, tree/rock/cabin and steep-snow avoidance, box-in slots
+  around you, back-out and respawn when stuck). Being seen raises the wanted level (1–5 stars): more
+  and faster agents, and from 3 stars a helicopter whose searchlight tracks you at a limited rate
+  (`src/vehicles/Helicopter.ts`). Terrain, forest and distance break line of sight; tree cover hides
+  you from the beam. Stay unseen to lose them, then they search your last known spot before giving
+  up. The drop only works with nobody on your tail; stopping with an agent alongside fills the
+  boxed-in meter and gets you busted. Pay is the biggest in the game, plus a bonus per star reached.
 
 Courses live in `src/data/tracks.json` as chains of trail sections and off-trail connectors; the
 terrain generator shapes those connectors (graded, tree-free corridors) automatically. Rewards are in
@@ -131,10 +140,10 @@ On every preset the pixel ratio drops automatically (down to 60%) if frames run 
 - `src/vehicles` — sled spec → derived physics params, raycast sled physics, primitive model (`SledVisual` interface for GLTF swap)
 - `src/world` — noise, terrain generation (heights + surface zones), terrain mesh, scenery, jumps, sky/weather, mountains, resort, track marks, effects, snow deformation
 - `src/render` — post-processing chain
-- `src/modes` — GameMode interface, Freeride, TimeTrial, Snocross, Delivery, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`
+- `src/modes` — GameMode interface, Freeride, TimeTrial, Snocross, Delivery, SpecialDelivery, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`, `ai/RaceAI`, `ai/PursuitAI`
 - `src/ui` — HUD (with minimap), title/loading screen (`Title.ts`), mode menu and pause card (`Menu.ts`), settings panel (`Settings.ts`), garage/dealership, showroom (3D garage scene), styles
 - `src/core/Progression.ts` — every purchase/unlock/install rule
-- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`
+- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`, `deliveries.json`, `snocross.json`, `special.json`
 
 ## Debugging
 - `__game.simulate(seconds, { throttle: 1, steer: 0.5 }, { jump: true })` — deterministic physics steps.

@@ -16,6 +16,22 @@ export function jobPoint(game: Game, id: string): { x: number; z: number; name: 
   return { x: c.x, z: c.z, name: id.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') };
 }
 
+/** Minimap marker for a destination, pinned to the map's edge when it's out of view. */
+export function drawTargetPin(ctx: CanvasRenderingContext2D, toMap: (x: number, z: number) => [number, number], wx: number, wz: number, color: string) {
+  let [x, y] = toMap(wx, wz);
+  const r = 90, cx = x - r, cy = y - r;
+  const d = Math.hypot(cx, cy);
+  const edge = d > r - 8;
+  if (edge) { x = r + (cx / d) * (r - 8); y = r + (cy / d) * (r - 8); }
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#0b1626';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, edge ? 5 : 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
 /** Pick up at a depot, haul to a remote cabin against the clock; fragile cargo pays by condition. */
 export class Delivery implements GameMode {
   readonly id = 'delivery';
@@ -218,19 +234,7 @@ export class Delivery implements GameMode {
   }
 
   drawMap(ctx: CanvasRenderingContext2D, toMap: (x: number, z: number) => [number, number]) {
-    let [x, y] = toMap(this.dest.x, this.dest.z);
-    // pin the marker to the minimap's edge when the destination is out of view
-    const r = 90, cx = x - r, cy = y - r;
-    const d = Math.hypot(cx, cy);
-    const edge = d > r - 8;
-    if (edge) { x = r + (cx / d) * (r - 8); y = r + (cy / d) * (r - 8); }
-    ctx.fillStyle = '#7cf3b0';
-    ctx.strokeStyle = '#0b1626';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, edge ? 5 : 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    drawTargetPin(ctx, toMap, this.dest.x, this.dest.z, '#7cf3b0');
     for (const { item, body } of this.game.loose.items) {
       if (!this.items.includes(item)) continue;
       const t = body.translation();

@@ -37,6 +37,7 @@ import { Route, RouteStep, corridorsOf } from '../modes/Route';
 import { COURSES, TimeTrial } from '../modes/TimeTrial';
 import { Freeride } from '../modes/Freeride';
 import { Snocross, SNOCROSS_EVENTS } from '../modes/Snocross';
+import { SpecialDelivery, SPECIAL_CONTRACTS } from '../modes/SpecialDelivery';
 import { Delivery, DELIVERY_JOBS } from '../modes/Delivery';
 import { Replay } from '../modes/Replay';
 import { PhotoMode } from '../modes/PhotoMode';
@@ -81,7 +82,7 @@ export class Game {
   post!: PostFX;
   settings!: SettingsMenu;
   title!: Title;
-  private scenery!: Scenery;
+  scenery!: Scenery;
   private terrainMesh!: TerrainMesh;
   private marks!: TrackMarks;
   private resort!: Resort;
@@ -295,6 +296,7 @@ export class Game {
     this.mode = id === 'timeTrial' ? new TimeTrial(this, arg ?? COURSES[0].id)
       : id === 'snocross' ? new Snocross(this, arg ?? SNOCROSS_EVENTS[0].id)
       : id === 'delivery' ? new Delivery(this, arg ?? DELIVERY_JOBS[0].id)
+      : id === 'special' ? new SpecialDelivery(this, arg ?? SPECIAL_CONTRACTS[0].id)
       : new Freeride(this);
     this.mode.enter();
     this.hud.setFreerideHelp(id === 'freeride');
@@ -303,7 +305,7 @@ export class Game {
     this.acc = 0;
   }
 
-  toMenu(view?: 'delivery' | 'snocross' | 'courses') {
+  toMenu(view?: 'delivery' | 'snocross' | 'courses' | 'special') {
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();

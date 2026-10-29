@@ -23,6 +23,7 @@ export interface SaveData {
   freeride: { crystals: string[]; viewpoints: string[] };
   delivery: { completed: number; jobs: Record<string, { done: number; bestPay: number; bestTime: number | null }> };
   snocross: Record<string, { best: number; wins: number; podiums: number; races: number }>;
+  special: { completed: number; busts: number; jobs: Record<string, { done: number; busts: number; bestPay: number; bestStars: number }> };
   tutorialDone: boolean;
   trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string }; ownedParts: string[] };
 }
@@ -43,6 +44,7 @@ export const DEFAULT_SAVE: SaveData = {
   freeride: { crystals: [], viewpoints: [] },
   delivery: { completed: 0, jobs: {} },
   snocross: {},
+  special: { completed: 0, busts: 0, jobs: {} },
   tutorialDone: false,
   trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' }, ownedParts: [] },
 };
@@ -84,6 +86,7 @@ function migrate(parsed: any): SaveData {
     freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
     delivery: { ...DEFAULT_SAVE.delivery, ...parsed.delivery },
     snocross: parsed.snocross ?? {},
+    special: { ...DEFAULT_SAVE.special, ...parsed.special, jobs: { ...parsed.special?.jobs } },
     trailer: {
       ...DEFAULT_SAVE.trailer, ...parsed.trailer,
       upgrades: { ...DEFAULT_SAVE.trailer.upgrades, ...parsed.trailer?.upgrades },

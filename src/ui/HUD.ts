@@ -44,6 +44,7 @@ export class HUD {
         <button class="hud-menu" type="button"><span class="burger"><i></i><i></i><i></i></span>MENU<kbd>ESC</kbd></button>
         <div class="hud-wallet"></div>
         <div class="hud-standings"></div>
+        <div class="hud-wanted"><div class="stars"></div><div class="status"></div><div class="meter"><span></span></div><div class="bust"><label>BOXED IN</label><div><span></span></div></div></div>
       </div>
       <div class="hud-objective"><div class="o-title"></div><div class="o-main"></div><div class="o-sub"></div></div>
       <div class="hud-countdown"></div>
@@ -127,6 +128,23 @@ export class HUD {
     if (!rows) return;
     const html = rows.map((r) => `<div class="${r.me ? 'me' : ''}"><span>${r.text}</span><span>${r.gap}</span></div>`).join('');
     if (el.innerHTML !== html) el.innerHTML = html;
+  }
+
+  /** Wanted level panel (null hides it). meter 0..1 is the evade/search progress; bust 0..1 the boxed-in meter. */
+  setWanted(w: { stars: number; max: number; status: string; kind: 'chase' | 'evade' | 'search' | 'clear'; meter: number; bust: number } | null) {
+    const el = this.q('.hud-wanted');
+    el.classList.toggle('show', !!w);
+    if (!w) return;
+    el.dataset.kind = w.kind;
+    const stars = Array.from({ length: w.max }, (_, i) => `<i class="${i < w.stars ? 'on' : ''}">★</i>`).join('');
+    const st = this.q('.hud-wanted .stars');
+    if (st.innerHTML !== stars) st.innerHTML = stars;
+    this.q('.hud-wanted .status').textContent = w.status;
+    this.q('.hud-wanted .meter').style.visibility = w.kind === 'evade' || w.kind === 'search' ? 'visible' : 'hidden';
+    this.q('.hud-wanted .meter span').style.width = `${Math.round(w.meter * 100)}%`;
+    const b = this.q('.hud-wanted .bust');
+    b.classList.toggle('show', w.bust > 0.01);
+    this.q('.hud-wanted .bust span').style.width = `${Math.round(w.bust * 100)}%`;
   }
 
   setFreerideHelp(on: boolean) {

@@ -5,6 +5,7 @@
     "fuel":    { "name": "Fuel Can",       "massKg": 21, "size": [0.36, 0.48, 0.2],  "fragile": false, "color": "#c62a1e", "value": 90 },
     "medical": { "name": "Medical Supplies","massKg": 9, "size": [0.5, 0.32, 0.38],  "fragile": true,  "color": "#f2f4f6", "value": 260 },
     "parcel":  { "name": "Parcel",         "massKg": 6,  "size": [0.4, 0.3, 0.32],   "fragile": true,  "color": "#c9a46c", "value": 80 },
+    "package": { "name": "Unmarked Package", "massKg": 14, "size": [0.5, 0.36, 0.42], "fragile": false, "color": "#2b2f36", "value": 0 },
     "firewood":{ "name": "Firewood Bundle","massKg": 34, "size": [0.6, 0.35, 0.45],  "fragile": false, "color": "#6b4a2e", "value": 60 }
   },
   "testLoads": [

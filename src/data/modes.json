@@ -22,6 +22,6 @@
     { "id": "timeTrial", "name": "Time Trial", "tagline": "Beat the clock. Beat your ghost.", "description": "Checkpoint courses across mixed snow. Race your best-run ghost for bronze, silver and gold.", "available": true },
     { "id": "delivery",  "name": "Delivery",  "tagline": "Haul it. Don't break it.", "description": "Pick up cargo and deliver it to remote cabins against the clock.", "available": true },
     { "id": "snocross",  "name": "Snocross",  "tagline": "Six sleds. One holeshot.", "description": "Race five AI riders around Frostpine Arena: berms, tabletops, a double, whoops and a rhythm section. Faster sleds, faster rivals.", "available": true },
-    { "id": "special",   "name": "Special Delivery", "tagline": "Don't stop. Don't get boxed in.", "description": "Carry a suspicious package while federal agents give chase.", "available": false, "comingIn": "Phase 6" }
+    { "id": "special",   "name": "Special Delivery", "tagline": "Don't stop. Don't get boxed in.", "description": "Carry an unmarked package while agents give chase. Break their line of sight to lose them, never get boxed in, and make the drop for the biggest payouts in the valley.", "available": true, "unlock": { "deliveries": 2 } }
   ]
 }

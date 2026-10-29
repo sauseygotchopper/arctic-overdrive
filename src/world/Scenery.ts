@@ -10,6 +10,58 @@ export type StaticCollider =
 
 const CHUNKS = 8;
 
+/** Spatial hash of tree trunks: obstacle checks for AI drivers and canopy cover for hiding. */
+export class TreeGrid {
+  private cells = new Map<number, number[]>();
+  constructor(positions: number[], private cell = 8) {
+    for (let i = 0; i < positions.length; i += 2) {
+      const k = this.key(Math.floor(positions[i] / cell), Math.floor(positions[i + 1] / cell));
+      let c = this.cells.get(k);
+      if (!c) this.cells.set(k, (c = []));
+      c.push(positions[i], positions[i + 1]);
+    }
+  }
+
+  private key(cx: number, cz: number) { return (cx + 1000) * 4096 + (cz + 1000); }
+
+  /** Calls fn(x, z) for every tree within r of (x, z). */
+  forEachNear(x: number, z: number, r: number, fn: (tx: number, tz: number) => void) {
+    const c = this.cell;
+    for (let cz = Math.floor((z - r) / c); cz <= Math.floor((z + r) / c); cz++) {
+      for (let cx = Math.floor((x - r) / c); cx <= Math.floor((x + r) / c); cx++) {
+        const list = this.cells.get(this.key(cx, cz));
+        if (!list) continue;
+        for (let i = 0; i < list.length; i += 2) {
+          const dx = list[i] - x, dz = list[i + 1] - z;
+          if (dx * dx + dz * dz <= r * r) fn(list[i], list[i + 1]);
+        }
+      }
+    }
+  }
+
+  /** Trees within r of a point (canopy cover). */
+  countNear(x: number, z: number, r: number): number {
+    let n = 0;
+    this.forEachNear(x, z, r, () => n++);
+    return n;
+  }
+
+  /** Trees within halfWidth of the segment a→b (sight lines, driving lines). */
+  countAlong(ax: number, az: number, bx: number, bz: number, halfWidth: number): number {
+    const len = Math.hypot(bx - ax, bz - az);
+    if (len < 1e-3) return 0;
+    const ux = (bx - ax) / len, uz = (bz - az) / len;
+    let n = 0;
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    this.forEachNear(mx, mz, len / 2 + halfWidth, (tx, tz) => {
+      const along = (tx - ax) * ux + (tz - az) * uz;
+      if (along < 0 || along > len) return;
+      if (Math.abs((tx - ax) * uz - (tz - az) * ux) < halfWidth) n++;
+    });
+    return n;
+  }
+}
+
 /** Pines, rocks, cabins, fences and trail markers, instanced per terrain chunk for culling. */
 export class Scenery {
   readonly group = new THREE.Group();
@@ -19,6 +71,9 @@ export class Scenery {
   treeCount = 0;
   /** x,z pairs of every pine (minimap). */
   readonly treePositions: number[] = [];
+  readonly trees: TreeGrid;
+  /** Everything solid (trees, rocks, cabins, fences) as points, for AI drivers picking a line. */
+  obstacles!: TreeGrid;
 
   /** `clearings` keep course connectors free of trees; `keepClear` lets other systems (gondola, lamps, park) reserve ground too. */
   constructor(
@@ -28,9 +83,26 @@ export class Scenery {
   ) {
     const rand = mulberry32(data.def.seed * 7 + 3);
     this.placeTrees(rand);
+    this.trees = new TreeGrid(this.treePositions);
     this.placeRocks(rand);
     this.placeCabins();
     this.placeFencesAndMarkers(rand);
+    this.obstacles = new TreeGrid(this.obstaclePoints());
+  }
+
+  /** Colliders as points: round ones at their centre, boxes sampled over their footprint every 1.5 m. */
+  private obstaclePoints(): number[] {
+    const out: number[] = [];
+    for (const c of this.colliders) {
+      if (c.kind !== 'box') { out.push(c.x, c.z); continue; }
+      const cos = Math.cos(c.rotY), sin = Math.sin(c.rotY);
+      for (let u = -c.hx; u <= c.hx + 1e-3; u += Math.min(1.5, c.hx * 2 || 1)) {
+        for (let v = -c.hz; v <= c.hz + 1e-3; v += Math.min(1.5, c.hz * 2 || 1)) {
+          out.push(c.x + u * cos + v * sin, c.z - u * sin + v * cos);
+        }
+      }
+    }
+    return out;
   }
 
   /** Off-trail course corridors are kept free of trees and rocks. */

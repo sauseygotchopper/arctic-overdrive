@@ -5,6 +5,8 @@ import { COURSES, fmtTime } from '../modes/TimeTrial';
 import { riderLevel } from '../core/Progression';
 import { DELIVERY_JOBS, jobPoint } from '../modes/Delivery';
 import { SNOCROSS_EVENTS } from '../modes/Snocross';
+import { SPECIAL_CONTRACTS } from '../modes/SpecialDelivery';
+import specialData from '../data/special.json';
 import { getSled, getPart } from '../vehicles/SledSpec';
 import cargoData from '../data/cargo.json';
 
@@ -18,7 +20,7 @@ const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m
 export class Menu {
   readonly el: HTMLDivElement;
   readonly pauseEl: HTMLDivElement;
-  private view: 'modes' | 'courses' | 'delivery' | 'snocross' = 'modes';
+  private view: 'modes' | 'courses' | 'delivery' | 'snocross' | 'special' = 'modes';
   private pauseArgs: [string, boolean] = ['', false];
 
   constructor(private game: Game) {
@@ -33,7 +35,7 @@ export class Menu {
     });
   }
 
-  show(view: 'courses' | 'delivery' | 'snocross' | 'modes' = 'modes') {
+  show(view: 'courses' | 'delivery' | 'snocross' | 'special' | 'modes' = 'modes') {
     this.view = view;
     this.render();
     this.el.classList.add('show');
@@ -74,6 +76,7 @@ export class Menu {
         let best = '';
         if (m.id === 'freeride') best = `${sd.freeride.crystals.length}/${freerideData.collectibles.length} crystals · ${sd.freeride.viewpoints.length}/${freerideData.viewpoints.length} viewpoints`;
         if (m.id === 'delivery') best = `${sd.delivery.completed} deliveries completed`;
+        if (m.id === 'special') best = `${sd.special.completed} delivered · ${sd.special.busts} busted`;
         if (m.id === 'snocross') {
           const r = Object.values(sd.snocross);
           best = `${r.reduce((a, x) => a + x.wins, 0)} wins · ${r.reduce((a, x) => a + x.podiums, 0)} podiums`;
@@ -86,13 +89,19 @@ export class Menu {
           ? `$${modesData.freeride.collectible.currency} per crystal · ${modesData.freeride.trickSpotMultiplier}× trick spots`
           : m.id === 'timeTrial' ? `Up to $${modesData.timeTrial.medals.gold.currency + modesData.timeTrial.finish.currency} per course`
           : m.id === 'delivery' ? `$${Math.min(...DELIVERY_JOBS.map((j) => j.pay))}–${Math.max(...DELIVERY_JOBS.map((j) => j.pay)).toLocaleString('en-US')} per job + time bonus`
-          : m.id === 'snocross' ? `Up to $${Math.max(...SNOCROSS_EVENTS.map((e) => e.rewards[0])).toLocaleString('en-US')} for a win` : '';
+          : m.id === 'snocross' ? `Up to $${Math.max(...SNOCROSS_EVENTS.map((e) => e.rewards[0])).toLocaleString('en-US')} for a win`
+          : m.id === 'special' ? `Up to $${fmt(Math.max(...SPECIAL_CONTRACTS.map((c) => c.pay * (1 + specialData.wantedBonus * c.maxStars))))} per contract` : '';
+        const unlock = (m as { unlock?: { deliveries?: number } }).unlock;
+        const needDeliveries = unlock?.deliveries && sd.delivery.completed < unlock.deliveries ? unlock.deliveries : 0;
+        const open = m.available && !needDeliveries;
         return `
-          <button class="card ${m.available ? '' : 'locked'}" data-mode="${m.id}" ${m.available ? '' : 'disabled'}>
+          <button class="card ${open ? '' : 'locked'}" data-mode="${m.id}" ${open ? '' : 'disabled'}>
             <div class="card-name">${m.name}</div>
             <div class="card-tag">${m.tagline}</div>
             <div class="card-desc">${m.description}</div>
-            ${m.available ? `<div class="card-best">${best}</div><div class="card-reward">${reward}</div>` : `<div class="card-soon">Coming in ${m.comingIn}</div>`}
+            ${open ? `<div class="card-best">${best}</div><div class="card-reward">${reward}</div>`
+              : needDeliveries ? `<div class="card-soon">Complete ${needDeliveries} deliveries to unlock (${sd.delivery.completed}/${needDeliveries})</div>`
+              : `<div class="card-soon">Coming in ${(m as { comingIn?: string }).comingIn}</div>`}
           </button>`;
       }).join('');
       this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title">Choose a mode</div><div class="cards">${cards}</div></div>`;
@@ -100,13 +109,15 @@ export class Menu {
       this.el.querySelectorAll<HTMLButtonElement>('.card[data-mode]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.mode!;
         if (id === 'timeTrial') { this.view = 'courses'; this.render(); }
-        else if (id === 'delivery' || id === 'snocross') { this.view = id; this.render(); }
+        else if (id === 'delivery' || id === 'snocross' || id === 'special') { this.view = id; this.render(); }
         else g.startMode(id);
       }));
     } else if (this.view === 'delivery') {
       this.renderJobs(head, goalHtml);
     } else if (this.view === 'snocross') {
       this.renderEvents(head, goalHtml);
+    } else if (this.view === 'special') {
+      this.renderContracts(head, goalHtml);
     } else {
       const rows = COURSES.map((c) => {
         const r = sd.timeTrials[c.id];
@@ -185,6 +196,34 @@ export class Menu {
     this.bindSide();
     this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
     this.el.querySelectorAll<HTMLButtonElement>('[data-event]').forEach((b) => b.addEventListener('click', () => g.startMode('snocross', b.dataset.event)));
+  }
+
+  private renderContracts(head: string, goalHtml: string) {
+    const g = this.game;
+    const sd = g.save.data;
+    const tier = getSled(sd.currentSled).tier;
+    const timeName: Record<string, string> = { morning: 'Morning', golden: 'Dusk', overcast: 'Overcast', night: 'Night' };
+    const rows = SPECIAL_CONTRACTS.map((c) => {
+      const a = jobPoint(g, c.from), b = jobPoint(g, c.to);
+      const km = Math.hypot(a.x - b.x, a.z - b.z) / 1000;
+      const locked = tier < c.tier;
+      const rec = sd.special.jobs[c.id];
+      const stars = (n: number) => `<span class="wanted-stars">${'★'.repeat(n)}<i>${'★'.repeat(specialData.maxStars - n)}</i></span>`;
+      return `
+        <button class="course ${locked ? 'locked' : ''}" data-contract="${c.id}" ${locked ? 'disabled' : ''}>
+          <div class="course-head"><div class="course-name">${c.name}</div><span class="pay">$${fmt(c.pay)}+</span></div>
+          <div class="course-desc">${a.name} → ${b.name} · ${km.toFixed(1)} km · ${timeName[c.time] ?? c.time}</div>
+          <div class="course-desc">${c.brief}</div>
+          <div class="chips"><span>Wanted up to ${stars(c.maxStars)}</span><span>Starts at ${'★'.repeat(c.startStars)}</span>${c.maxStars >= specialData.helicopterAt ? '<span class="frag">Helicopter</span>' : ''}<span>+${Math.round(specialData.wantedBonus * 100)}% per star reached</span></div>
+          <div class="course-times">${locked ? `<span class="lockmsg">Needs a tier ${c.tier}+ sled</span>` : ''}
+            <span class="pb">${rec ? `Delivered ${rec.done}× · busted ${rec.busts}×${rec.bestPay ? ` · best $${fmt(rec.bestPay)}` : ''}` : 'Not attempted'}</span></div>
+        </button>`;
+    }).join('');
+    const how = `<div class="course-desc special-how">Agents chase you while they can see you, and the wanted level climbs. Break line of sight – over a ridge, into the trees, or just out of range – long enough and they lose you. Trees hide you from the helicopter's searchlight. Stop with an agent alongside and you're busted. You can only make the drop with nobody on your tail.</div>`;
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Special Delivery</div>${how}<div class="courses">${rows}</div></div>`;
+    this.bindSide();
+    this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-contract]').forEach((b) => b.addEventListener('click', () => g.startMode('special', b.dataset.contract)));
   }
 
   private bindSide() {
