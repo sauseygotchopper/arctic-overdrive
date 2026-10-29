@@ -1,6 +1,7 @@
 import { Quality, QUALITIES } from '../core/Graphics';
 import { TimeOfDay, TIMES_OF_DAY } from '../world/Sky';
 import { CameraMode } from '../core/CameraRig';
+import { HandlingMode, HANDLING_MODES } from '../physics/Handling';
 
 export interface MenuHooks {
   resume(): void;
@@ -13,6 +14,8 @@ export interface MenuHooks {
   camera(): CameraMode;
   setCamera(m: CameraMode): void;
   clock(): string;
+  handling(): HandlingMode;
+  setHandling(m: HandlingMode): void;
 }
 
 const CONTROLS: [string, string][] = [
@@ -36,6 +39,10 @@ export class Menu {
       <div class="menu-col">
         <div class="menu-title">Paused</div>
         <button class="menu-resume" type="button"><span>Resume</span><kbd>ESC</kbd><i>↗</i></button>
+        <section class="card">
+          <h3>Handling <small class="menu-handling-note"></small></h3>
+          ${seg('handling', HANDLING_MODES)}
+        </section>
         <section class="card">
           <h3>Graphics <small>reloads the game</small></h3>
           ${seg('quality', QUALITIES)}
@@ -63,6 +70,7 @@ export class Menu {
         const v = b.dataset.v!;
         if (s.dataset.seg === 'quality') hooks.setQuality(v as Quality);
         else if (s.dataset.seg === 'tod') hooks.setTimeOfDay(v as TimeOfDay);
+        else if (s.dataset.seg === 'handling') hooks.setHandling(v as HandlingMode);
         else hooks.setCamera(v as CameraMode);
         this.refresh();
       });
@@ -86,6 +94,9 @@ export class Menu {
     mark('quality', h.quality());
     mark('tod', h.dayCycle() ? '' : h.timeOfDay());
     mark('camera', h.camera());
+    mark('handling', h.handling());
+    this.el.querySelector('.menu-handling-note')!.textContent =
+      h.handling() === 'realistic' ? 'grip, bogging, clutch, crust' : 'original tuning, +15% gravity';
     this.el.querySelector<HTMLInputElement>('.cycle')!.checked = h.dayCycle();
     this.el.querySelector('.menu-clock')!.textContent = h.clock();
   }

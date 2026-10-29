@@ -18,10 +18,17 @@ export class PhysicsWorld {
   readonly R = RAPIER;
   readonly world: RAPIER.World;
   terrainCollider!: RAPIER.Collider;
+  /** Current gravity (m/s²); the handling model can scale it. */
+  g = GRAVITY;
 
   constructor() {
     this.world = new RAPIER.World({ x: 0, y: -GRAVITY, z: 0 });
     this.world.timestep = PHYSICS_DT;
+  }
+
+  setGravityScale(scale: number) {
+    this.g = GRAVITY * scale;
+    this.world.gravity = { x: 0, y: -this.g, z: 0 };
   }
 
   addTerrain(t: TerrainData) {

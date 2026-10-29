@@ -18,6 +18,7 @@ import { SaveSystem } from './SaveSystem';
 import { HUD } from '../ui/HUD';
 import { Menu } from '../ui/Menu';
 import { CameraMode } from './CameraRig';
+import { HandlingMode, HANDLING, setHandlingMode, handlingMode } from '../physics/Handling';
 import { DevTools } from './DevTools';
 import { GRAPHICS, GraphicsPreset } from './Graphics';
 import { Mountains } from '../world/Mountains';
@@ -59,6 +60,7 @@ export class Game {
   private frameAcc = 0;
   private frameCount = 0;
   private resScale = 1;
+  private crustSeen = 0;
 
   constructor(private container: HTMLElement, private onProgress: (msg: string, frac: number) => void) {}
 
@@ -72,6 +74,8 @@ export class Game {
     await step('Waking up the physics engine…', 0.05);
     await initRapier();
     this.physics = new PhysicsWorld();
+    setHandlingMode(this.save.data.settings.handling);
+    this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
 
     const g = (this.gfx = GRAPHICS[q]);
     this.renderer = new THREE.WebGLRenderer({ antialias: g.antialias && !g.post, powerPreference: 'high-performance' });
@@ -148,6 +152,8 @@ export class Game {
         this.save.save();
       },
       clock: () => this.sky.clock,
+      handling: () => handlingMode(),
+      setHandling: (m) => this.setHandling(m),
     });
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.loose = new LooseCargo(this.physics, this.scene);
@@ -179,6 +185,16 @@ export class Game {
   setPaused(on: boolean) {
     this.paused = on;
     this.menu.show(on);
+  }
+
+  /** Switch handling model live: gravity and suspension rates are re-derived for the new gravity. */
+  setHandling(m: HandlingMode) {
+    setHandlingMode(m);
+    this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
+    this.player.refreshSetup();
+    this.player.trailer?.applyUpgrades();
+    this.save.data.settings.handling = handlingMode();
+    this.save.save();
   }
 
   setDayCycle(on: boolean) {
@@ -355,6 +371,10 @@ export class Game {
       }
       if (steps === MAX_STEPS) this.acc = 0;
       this.processEvents();
+      if (this.player.physics.crustBreaks !== this.crustSeen) {
+        this.crustSeen = this.player.physics.crustBreaks;
+        this.effects.burst(this.player.physics.lastBreak, 2.5);
+      }
       // auto-recover when left upside down
       if (this.player.flippedTime > 4) this.player.recover();
       this.effects.emitFromSled(this.player, dt);
