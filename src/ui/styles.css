@@ -133,6 +133,10 @@ button { font: inherit; color: inherit; }
 .seg button { cursor: pointer; flex: 1; padding: 8px 4px; border: 0; border-radius: 8px; background: transparent; font-size: 12px; font-weight: 700; color: var(--muted); }
 .seg button:hover { color: var(--text); }
 .seg button.on { background: var(--paper); color: var(--ink); }
+.seg-tiles button { display: flex; flex-direction: column; gap: 3px; padding: 10px 10px; text-align: left; }
+.seg-tiles b { font-size: 13px; }
+.seg-tiles small { font-size: 10.5px; font-weight: 600; line-height: 1.3; opacity: .8; }
+.menu-section { margin: 8px 2px -2px; font-size: 11px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
 .switch { margin-top: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .switch input { position: absolute; opacity: 0; }
 .switch .track { width: 34px; height: 20px; border-radius: 10px; background: rgba(255,255,255,.2); position: relative; transition: background .15s; }

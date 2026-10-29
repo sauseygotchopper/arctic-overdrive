@@ -1,7 +1,7 @@
 import { Quality, QUALITIES } from '../core/Graphics';
 import { TimeOfDay, TIMES_OF_DAY } from '../world/Sky';
 import { CameraMode } from '../core/CameraRig';
-import { HandlingMode, HANDLING_MODES } from '../physics/Handling';
+import { HandlingMode, HANDLING_MODES, HANDLING } from '../physics/Handling';
 
 export interface MenuHooks {
   resume(): void;
@@ -23,9 +23,14 @@ const CONTROLS: [string, string][] = [
   ['J K L I', 'Tricks'], ['H', 'Hitch trailer'], ['G', 'Cycle load'], ['C', 'Camera'], ['T', 'Time of day'], ['N', 'Day/night cycle'], ['R', 'Recover'],
 ];
 
+const HANDLING_NOTES: Record<HandlingMode, string> = {
+  realistic: 'Planted rear, bogging, clutch & engine braking, wind crust',
+  arcade: 'Original loose tuning, +15% gravity',
+};
+
 const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Pause menu: resume card, graphics preset, time of day + cycle toggle, camera, controls. */
+/** Pause menu: resume card, then settings: handling model, graphics preset, time of day + cycle toggle, camera, controls. */
 export class Menu {
   readonly el: HTMLDivElement;
   private open = false;
@@ -39,9 +44,11 @@ export class Menu {
       <div class="menu-col">
         <div class="menu-title">Paused</div>
         <button class="menu-resume" type="button"><span>Resume</span><kbd>ESC</kbd><i>↗</i></button>
+        <div class="menu-section">Settings</div>
         <section class="card">
-          <h3>Handling <small class="menu-handling-note"></small></h3>
-          ${seg('handling', HANDLING_MODES)}
+          <h3>Handling model <small>applies instantly</small></h3>
+          <div class="seg seg-tiles" data-seg="handling">${HANDLING_MODES.map((m) =>
+            `<button type="button" data-v="${m}"><b>${HANDLING[m].label}</b><small>${HANDLING_NOTES[m]}</small></button>`).join('')}</div>
         </section>
         <section class="card">
           <h3>Graphics <small>reloads the game</small></h3>
@@ -95,8 +102,6 @@ export class Menu {
     mark('tod', h.dayCycle() ? '' : h.timeOfDay());
     mark('camera', h.camera());
     mark('handling', h.handling());
-    this.el.querySelector('.menu-handling-note')!.textContent =
-      h.handling() === 'realistic' ? 'grip, bogging, clutch, crust' : 'original tuning, +15% gravity';
     this.el.querySelector<HTMLInputElement>('.cycle')!.checked = h.dayCycle();
     this.el.querySelector('.menu-clock')!.textContent = h.clock();
   }
