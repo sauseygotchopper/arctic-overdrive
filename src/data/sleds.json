@@ -57,6 +57,7 @@
       "peakRpm": 7900,
       "idleRpm": 1800,
       "engageRpm": 4200,
+      "engineType": "2-stroke",
       "maxRpm": 8400,
       "topSpeedKmh": 150,
       "dryWeightKg": 245,

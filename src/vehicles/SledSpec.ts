@@ -16,6 +16,7 @@ export interface SledSpec {
   peakRpm: number;
   idleRpm: number;
   engageRpm: number;
+  engineType: '2-stroke' | '4-stroke';
   maxRpm: number;
   topSpeedKmh: number;
   dryWeightKg: number;
@@ -101,6 +102,10 @@ export interface SledParams {
   trackContactLen: number; // m of track on the snow
   trackWidth: number;
   skiWidth: number;
+  skiArea: number; // m² footprint of one ski
+  trackArea: number; // m² of track carried by one of the four track contacts
+  /** Engine braking at full belt engagement, as a fraction of weight (4-strokes brake harder). */
+  engineBrakeG: number;
   flotation: number; // 1 = reference crossover with rider
   powderTraction: number; // lug bite multiplier in soft snow
   hardpackDrag: number; // extra rolling drag from tall lugs on hard snow
@@ -176,6 +181,9 @@ export function deriveParams(setup: SledSetup): SledParams {
     trackContactLen,
     trackWidth,
     skiWidth,
+    skiArea: s.skiWidth * 0.9,
+    trackArea: (trackContactLen * trackWidth) / 4,
+    engineBrakeG: s.engineType === '4-stroke' ? 0.09 : 0.045,
     flotation: area / mass / REF_FLOAT_AREA_PER_KG,
     powderTraction: 1 + (lugHeightIn - 1.25) * 0.55,
     hardpackDrag: Math.max(0, lugHeightIn - 1.0) * 0.006 + Math.max(0, trackLengthIn - 137) * 0.0002,

@@ -26,6 +26,7 @@ import { Menu } from '../ui/Menu';
 import { SettingsMenu } from '../ui/Settings';
 import { Title } from '../ui/Title';
 import { CameraMode } from './CameraRig';
+import { HandlingMode, HANDLING, setHandlingMode, handlingMode } from '../physics/Handling';
 import { DevTools } from './DevTools';
 import { GRAPHICS, GraphicsPreset } from './Graphics';
 import { Mountains } from '../world/Mountains';
@@ -99,6 +100,7 @@ export class Game {
   /** Full ticks still owed while the opaque title is up, so shaders compile before the first ride. */
   private warmFrames = 3;
   private settingsClose: (() => void) | null = null;
+  private crustSeen = 0;
 
   constructor(readonly container: HTMLElement, private onProgress: (msg: string, frac: number) => void, private titleRoot: HTMLElement) {}
 
@@ -112,6 +114,8 @@ export class Game {
     await step('Waking up the physics engine…', 0.05);
     await initRapier();
     this.physics = new PhysicsWorld();
+    setHandlingMode(this.save.data.settings.handling);
+    this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
 
     const g = (this.gfx = GRAPHICS[q]);
     this.renderer = new THREE.WebGLRenderer({ antialias: g.antialias && !g.post, powerPreference: 'high-performance' });
@@ -176,7 +180,9 @@ export class Game {
     this.hud = new HUD(this.container);
     this.hud.onMenu = () => this.setPaused(!this.paused);
     this.rig.setMode((this.save.data.settings.camera as CameraMode) || 'chase');
-    this.settings = new SettingsMenu(this.container, {
+    // on <body>, not the game container: #app is position:fixed (its own stacking context), which left
+    // the panel underneath the title overlay when opened from the title screen
+    this.settings = new SettingsMenu(document.body, {
       back: () => this.closeSettings(),
       quality: () => this.save.data.settings.quality,
       setQuality: (v) => {
@@ -201,6 +207,8 @@ export class Game {
         this.save.save();
       },
       clock: () => this.sky.clock,
+      handling: () => handlingMode(),
+      setHandling: (m) => this.setHandling(m),
     });
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
@@ -348,6 +356,16 @@ export class Game {
     this.hud.toast(`Day/night cycle ${this.sky.cycle ? 'on' : 'off'}`);
   }
 
+  /** Switch handling model live: gravity and suspension rates are re-derived for the new gravity. */
+  setHandling(m: HandlingMode) {
+    setHandlingMode(m);
+    this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
+    this.player.refreshSetup();
+    this.player.trailer?.applyUpgrades();
+    this.save.data.settings.handling = handlingMode();
+    this.save.save();
+  }
+
   setDayCycle(on: boolean) {
     this.sky.cycle = on;
     this.save.data.settings.dayCycle = on;
@@ -356,7 +374,8 @@ export class Game {
 
   // ---------- trailer ----------
 
-  toggleTrailer(silent = false) {
+  /** `fromPlayer`: the hitch key, which needs the sled upright on the snow (modes and tools place it themselves). */
+  toggleTrailer(silent = false, fromPlayer = false) {
     const p = this.player;
     if (p.trailer) {
       const t = p.trailer;
@@ -370,7 +389,7 @@ export class Game {
       return;
     }
     p.physics.readState();
-    if (p.physics.up.y < 0.6 || p.physics.groundedCount === 0) { this.hud.toast('Get the sled upright on the snow first'); return; }
+    if (fromPlayer && (p.physics.up.y < 0.6 || p.physics.groundedCount === 0)) { this.hud.toast('Get the sled upright on the snow first'); return; }
     const t = new Trailer(this.physics, this.terrain, this.loose, { ...this.save.data.trailer.upgrades }, p.physics.position.clone(), 0);
     this.scene.add(t.root);
     t.setCargo(TEST_LOADS[this.loadIndex]);
@@ -588,7 +607,7 @@ export class Game {
       if (input.consumePressed('timeOfDay')) this.cycleTime();
       if (input.consumePressed('weather')) this.cycleWeather();
       if (input.consumePressed('dayCycle')) this.toggleDayCycle();
-      if (input.consumePressed('hitch')) this.toggleTrailer();
+      if (input.consumePressed('hitch')) this.toggleTrailer(false, true);
       if (input.consumePressed('cargo')) this.cycleLoad();
       if (input.consumePressed('photo')) this.photo.enter();
       if (input.consumePressed('replay')) this.replay.play();
@@ -610,6 +629,10 @@ export class Game {
     }
     if (steps === MAX_STEPS) this.acc = 0;
     this.processEvents();
+    if (this.player.physics.crustBreaks !== this.crustSeen) {
+      this.crustSeen = this.player.physics.crustBreaks;
+      this.effects.burst(this.player.physics.lastBreak, 2.5);
+    }
     if (this.player.flippedTime > 4 && !this.mode?.recover?.()) this.player.recover();
     this.effects.emitFromSled(this.player, dt);
     this.marks.update(this.player);

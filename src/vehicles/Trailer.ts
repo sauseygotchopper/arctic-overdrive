@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import trailerData from '../data/trailers.json';
-import { PhysicsWorld, GRAVITY } from '../physics/PhysicsWorld';
+import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { SURFACES, SurfaceDef, sinkTarget, sinkDragForce } from '../physics/Surfaces';
 import { TerrainData } from '../world/TerrainData';
 import { CargoItem, CargoType, LooseCargo } from './Cargo';
@@ -138,9 +138,9 @@ export class Trailer {
     const ski = U.skis.find((x) => x.id === this.upgrades.skis) ?? U.skis[0];
     const tie = U.tieDowns.find((x) => x.id === this.upgrades.tieDowns) ?? U.tieDowns[0];
     this.travel = sus.travel;
-    const designLoad = ((TRAILER.base.emptyMassKg + NOMINAL_PAYLOAD) * GRAVITY) / 4;
+    const designLoad = ((TRAILER.base.emptyMassKg + NOMINAL_PAYLOAD) * this.phys.g) / 4;
     this.k = (designLoad / (0.45 * this.travel)) * sus.stiffness;
-    this.c = 2 * 0.55 * Math.sqrt(this.k * (designLoad / GRAVITY)) * sus.damping;
+    this.c = 2 * 0.55 * Math.sqrt(this.k * (designLoad / this.phys.g)) * sus.damping;
     this.skiWidth = ski.width;
     this.latGrip = ski.lateralGrip;
     this.spillChance = tie.spillChance;
@@ -296,7 +296,7 @@ export class Trailer {
     const maxLen = BASE + this.travel;
     let grounded = 0;
     const wasAir = this.airTime > 0.3;
-    const designLoad = ((TRAILER.base.emptyMassKg + NOMINAL_PAYLOAD) * GRAVITY) / 4;
+    const designLoad = ((TRAILER.base.emptyMassKg + NOMINAL_PAYLOAD) * this.phys.g) / 4;
 
     for (const c of this.contacts) {
       const origin = _v.copy(c.local).applyQuaternion(this.quaternion).add(this.position);

@@ -106,13 +106,26 @@ Every ski, track and trailer runner stamps a persistent rut into a GPU deformati
 (0.25 m resolution on high quality) that the terrain shader shades as real grooves. A matching
 packed-snow grid feeds back into physics: riding in an existing rut sinks less.
 
-### Deep snow
-A sunk ski or track sits in its own groove, so in soft snow the sled tracks straight and turns by
-carving (lean into the turn) rather than skating sideways. Turns are capped at what the snow can hold,
-and a spinning track loses some side grip on hardpack (power slides). Pinning the throttle while
-slow in powder makes the track dig a trench under itself until the belly pan rests on the snow:
-you're bogged. Rock side to side, back out (hold S), or feather the throttle to climb out; R always recovers.
-Heavy trailer loads bog much more easily than a solo sled.
+### Handling models
+Pick in Settings → Handling model (from the title, the mode menu or the pause card); applies instantly and is saved.
+- **Realistic** (default)
+  - *Grip:* turns are capped at what the snow can hold, so the rear stays planted. A sunk ski or
+    track sits in its own groove and tracks straight; in soft snow you turn by carving (lean in).
+    A spinning track loses some side grip on hardpack (power slides).
+  - *Bogging:* pinning the throttle while slow in powder digs a trench until the belly pan rests
+    on the snow. Rock side to side, back out (hold S) or feather the throttle; R always recovers.
+    Heavy trailer loads bog far more easily than a solo sled.
+  - *CVT drivetrain:* the primary clutch grips the belt above engagement rpm. Off throttle it
+    stays engaged down to about 18 km/h, giving engine braking (about 0.045 g for a 2-stroke,
+    0.09 g for a 4-stroke) and back-driving the engine. While engaged the track never turns
+    backwards: on a climb the lugs hold the sled up to their grip. Below about 18 km/h off
+    throttle the clutch lets go and the track freewheels against driveline drag, so an idling
+    sled rolls on a steep enough slope, as real CVT sleds do. Brake to hold it.
+  - *Wind crust:* holds until contact pressure (smoothed sustained load per ski/track footprint)
+    beats its strength. Strength is patchy and rises with speed. Landings from ~1.5 m punch
+    through, as do weak patches at a crawl and heavy loads; you then ride in the soft layer
+    underneath ("Broken Crust") until you plane back on top at ~26 km/h.
+- **Arcade**: looser tuning (no grip-limited turns, groove keel or full lever arm, so the rear swings out), no bogging, clutch or crust, and 15% more gravity.
 
 ### Trailer
 `H` hitches the Haulmaster utility trailer (needs a tow hitch add-on) (spherical hitch joint + soft yaw/pitch/roll limits).

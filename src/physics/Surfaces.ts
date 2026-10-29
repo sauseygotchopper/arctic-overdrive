@@ -17,6 +17,10 @@ export interface SurfaceDef {
   speedCap: number;
   roughness: number;
   spray: number;
+  /** Crusts only: pressure (kPa) at which the crust gives way, before speed/patchiness scaling. */
+  breakKPa?: number;
+  /** Crusts only: the softer layer underneath, as overrides of this surface. */
+  under?: Partial<SurfaceDef>;
 }
 
 export const SURFACE_KEYS: SurfaceKey[] = ['groomed', 'powder', 'crust', 'ice', 'slush', 'moguls'];
@@ -27,6 +31,18 @@ export const SURFACES: SurfaceDef[] = SURFACE_KEYS.map((key, id) => ({
   id,
   ...(surfaceData as unknown as Record<SurfaceKey, Omit<SurfaceDef, 'key' | 'id'>>)[key],
 }));
+
+/** For a crust surface: the same surface after it has broken (the layer underneath). */
+export const BROKEN: (SurfaceDef | null)[] = SURFACES.map((s) => (s.under ? { ...s, ...s.under, under: undefined, breakKPa: undefined } : null));
+
+/**
+ * Crust strength multiplier at a point: wind crust is patchy, so some spots hold a sled and the
+ * patch beside it doesn't. Roughly 0.6..1.4, varying over a few metres.
+ */
+export function crustPatchiness(x: number, z: number): number {
+  const n = Math.sin(x * 0.37 + Math.sin(z * 0.21) * 2.1) * Math.sin(z * 0.29 - x * 0.13) * 0.65 + Math.sin(x * 1.3 + z * 0.9) * 0.25;
+  return 1 + n * 0.45;
+}
 
 export const SURFACE_ID: Record<SurfaceKey, number> = Object.fromEntries(
   SURFACE_KEYS.map((k, i) => [k, i]),
