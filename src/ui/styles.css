@@ -200,10 +200,6 @@ button { font: inherit; color: inherit; }
 @keyframes blink { 50% { opacity: .35; } }
 .hud-minimap { position: absolute; left: 18px; bottom: 64px; width: 180px; height: 180px; border-radius: 50%; box-shadow: 0 6px 24px rgba(0,10,30,.35); }
 .hud-trailer { bottom: 256px; }
-.hud-help { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: max-content; max-width: min(780px, 52vw); text-align: center; font-size: 11px; font-weight: 600; line-height: 1.5; color: var(--muted); }
-.hud-help b { color: var(--text); font-weight: 800; }
-.hud .help-free { display: none; }
-.hud.freeride .help-free { display: inline; }
 .hud-replay-tag { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 800; letter-spacing: .14em; color: #ff5a5a; display: none; }
 .hud-replay-tag span { font-family: var(--font-ui); font-size: 12px; font-weight: 400; color: #fff; opacity: .7; letter-spacing: 0; margin-left: 8px; }
 .hud.replaying > *:not(.hud-replay-tag) { visibility: hidden; }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
 import { Checkpoints } from './Checkpoints';
@@ -106,7 +107,7 @@ export class TimeTrial implements GameMode {
   exit() {
     const g = this.game;
     this.gates.dispose();
-    this.ghost?.model.root.removeFromParent();
+    if (this.ghost) disposeObject(this.ghost.model.root);
     g.hud.setObjective(null);
     g.hud.setCountdown('');
     g.hud.setWarning('');

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
 import { Sled } from '../vehicles/Sled';
@@ -154,7 +155,7 @@ export class SpecialDelivery implements GameMode {
     const g = this.game;
     this.clearAgents();
     this.heli.exit();
-    this.marker.removeFromParent();
+    disposeObject(this.marker);
     g.player.setRack([]);
     g.sky.cycle = this.prevCycle;
     g.sky.apply(this.prevTime);

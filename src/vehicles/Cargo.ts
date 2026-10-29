@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import RAPIER from '@dimforge/rapier3d-compat';
 import cargoData from '../data/cargo.json';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
@@ -17,6 +18,11 @@ export class CargoItem {
   readonly def: CargoDef;
   health = 1;
   readonly mesh: THREE.Mesh;
+
+  /** Free the mesh once the item is gone for good (not when it's only spilled). */
+  dispose() {
+    disposeObject(this.mesh);
+  }
 
   constructor(readonly type: CargoType) {
     this.def = CARGO_TYPES[type];

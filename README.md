@@ -144,8 +144,13 @@ marks, a gondola line, lit lamp posts and a small rail/box park (`src/world/Reso
 Presets live in `src/core/Graphics.ts` and are picked in the pause menu (the game reloads):
 - **Low** — no shadows or post-processing, fewer snowflakes, no lamp lights.
 - **Medium** — 1024 shadows, bloom, colour grade + vignette, speed blur, 2 lamp lights.
-- **High** — soft 2048 shadows, GTAO, bloom, sun shafts, speed blur, 6 lamp lights.
+- **High** — soft 2048 shadows, bloom, sun shafts, speed blur, 6 lamp lights.
+- **Ultra** — High plus GTAO ambient occlusion. GTAO re-draws the whole scene for its normal pass and
+  roughly doubles GPU time (about 14.8 ms vs 6.7 ms a frame measured on an M-series Mac), so it's opt-in.
 On every preset the pixel ratio drops automatically (down to 60%) if frames run longer than ~19 ms.
+
+Meshes, materials and textures of AI sleds, ghosts, gates, markers, cargo and showroom previews are
+freed when they go away (`src/core/dispose.ts`); cycling every mode with restarts leaves GPU memory flat.
 
 ### Rider skills
 Rider level (from XP in any mode) earns skill points: one to start plus one per level. Spend them in

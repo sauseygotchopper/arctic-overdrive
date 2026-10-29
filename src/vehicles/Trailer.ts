@@ -151,7 +151,7 @@ export class Trailer {
   }
 
   setCargo(types: CargoType[]) {
-    for (const c of this.cargo) c.mesh.removeFromParent();
+    for (const c of this.cargo) c.dispose();
     this.cargo.length = 0;
     for (const t of types) this.cargo.push(new CargoItem(t));
     this.layoutCargo();

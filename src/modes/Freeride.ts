@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
 import freerideData from '../data/freeride.json';
@@ -84,7 +85,7 @@ export class Freeride implements GameMode {
 
   exit() {
     const g = this.game;
-    this.group.removeFromParent();
+    disposeObject(this.group);
     g.player.stunts.bonusMultiplier = 1;
     g.hud.setObjective(null);
   }

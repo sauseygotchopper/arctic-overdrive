@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { TerrainData } from '../world/TerrainData';
 import { SledPhysics, DriveInput } from './SledPhysics';
@@ -65,6 +66,7 @@ export class Sled {
 
   /** Load the rear rack (adds the cargo's mass to the sled). */
   setRack(types: CargoType[]) {
+    for (const c of this.rack) c.dispose();
     this.rack.length = 0;
     for (const t of types) this.rack.push(new CargoItem(t));
     this.syncRack();
@@ -113,6 +115,7 @@ export class Sled {
   dispose(phys: PhysicsWorld, scene: THREE.Scene) {
     phys.world.removeRigidBody(this.physics.body);
     scene.remove(this.visual.root);
+    disposeObject(this.visual.root);
   }
 
   /** Move the sled (and anything hitched to it) – never teleport physics.body directly while towing. */

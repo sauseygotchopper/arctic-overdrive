@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import { SledModel } from '../vehicles/SledModel';
 import { SledSetup, deriveParams } from '../vehicles/SledSpec';
 
@@ -84,7 +85,7 @@ export class Showroom {
 
   /** Swap the sled on the turntable. */
   show(setup: SledSetup) {
-    if (this.model) this.turntable.remove(this.model.root);
+    if (this.model) disposeObject(this.model.root); // a new model per preview (paint, parts): free the last one
     const params = deriveParams(setup);
     const m = new SledModel(setup.spec, params, setup.livery);
     // resting suspension pose and seated rider

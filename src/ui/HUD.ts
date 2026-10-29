@@ -74,10 +74,6 @@ export class HUD {
         <div class="hud-speed"><span class="val">0</span><span class="unit">KM/H</span></div>
         <div class="hud-rpm"><div class="fill"></div></div>
         <div class="hud-rpm-text">0 rpm</div>
-      </div>
-      <div class="hud-help">
-        <b>W/S</b> throttle/brake · <b>A/D</b> steer (spin in air) · <b>Arrows</b> lean / flip · <b>Space</b> hold+release to pop ·
-        <b>J K L I</b> tricks (+A/D Can-Can, Nac-Nac) · <b>C</b> camera · <b>R</b> recover · <b>Esc</b> pause<span class="help-free"> · <b>H</b> trailer · <b>G</b> load · <b>T</b> time · <b>Y</b> weather · <b>F</b> photo · <b>V</b> replay</span>
       </div>`;
     parent.appendChild(this.el);
     this.q = <T extends HTMLElement = HTMLElement>(s: string) => this.el.querySelector(s) as T;

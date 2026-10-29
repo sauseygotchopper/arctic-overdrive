@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import { TerrainData } from '../world/TerrainData';
 
 export interface Gate {
@@ -83,7 +84,7 @@ export class Checkpoints {
   }
 
   dispose() {
-    this.group.removeFromParent();
+    disposeObject(this.group);
   }
 }
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
 import { CargoItem, CargoType } from '../vehicles/Cargo';
@@ -79,7 +80,7 @@ export class Delivery implements GameMode {
     const p = g.player;
     if (p.trailer) g.toggleTrailer(true);
     p.setRack([]);
-    for (const l of [...g.loose.items]) g.loose.remove(l.item);
+    for (const l of [...g.loose.items]) { g.loose.remove(l.item); l.item.dispose(); }
     // start beside the pickup, facing the destination
     const from = jobPoint(g, this.job.from);
     const dx = this.dest.x - from.x, dz = this.dest.z - from.z;
@@ -106,7 +107,8 @@ export class Delivery implements GameMode {
 
   exit() {
     const g = this.game;
-    this.marker.removeFromParent();
+    disposeObject(this.marker);
+    for (const l of [...g.loose.items]) { g.loose.remove(l.item); l.item.dispose(); }
     if (g.player.trailer) g.toggleTrailer(true);
     g.player.setRack([]);
     g.hud.setObjective(null);

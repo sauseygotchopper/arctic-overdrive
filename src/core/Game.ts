@@ -137,7 +137,7 @@ export class Game {
     this.scene.add(this.terrainMesh.group);
     this.marks = new TrackMarks(this.terrain, g.trackPoints);
     this.scene.add(this.marks.group);
-    const defRes = q === 'high' ? 4096 : q === 'medium' ? 2048 : 1024;
+    const defRes = q === 'high' || q === 'ultra' ? 4096 : q === 'medium' ? 2048 : 1024;
     this.snow = new SnowDeformation(this.renderer, this.terrain, defRes);
     this.terrainMesh.deformUniforms.deformMap.value = this.snow.target.texture;
     this.terrainMesh.deformUniforms.deformTexel.value = 1 / defRes;
