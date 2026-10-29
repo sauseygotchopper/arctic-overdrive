@@ -35,6 +35,8 @@ export interface SaveData {
   special: { completed: number; busts: number; jobs: Record<string, { done: number; busts: number; bestPay: number; bestStars: number }> };
   tutorialDone: boolean;
   trailer: { owned: boolean; upgrades: { suspension: string; skis: string; tieDowns: string }; ownedParts: string[] };
+  /** Set by the developer unlock code (DevTools.UNLOCK_CODE): progress gates stay open. */
+  devUnlock: boolean;
 }
 
 const KEY = 'arctic-overdrive-save';
@@ -60,6 +62,7 @@ export const DEFAULT_SAVE: SaveData = {
   special: { completed: 0, busts: 0, jobs: {} },
   tutorialDone: false,
   trailer: { owned: true, upgrades: { suspension: 'stock', skis: 'stock', tieDowns: 'none' }, ownedParts: [] },
+  devUnlock: false,
 };
 
 export class SaveSystem {
