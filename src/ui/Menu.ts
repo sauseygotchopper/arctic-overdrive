@@ -72,7 +72,12 @@ export class Menu {
     return this.el.classList.contains('show');
   }
 
+  private lastView = '';
+
   private render() {
+    // re-rendering the same view (buying a skill, etc.) must not replay the slide-in under the pointer
+    this.el.classList.toggle('no-anim', this.view === this.lastView && this.el.classList.contains('show'));
+    this.lastView = this.view;
     const g = this.game;
     const sd = g.save.data;
     const lvl = riderLevel(sd.xp);
@@ -271,14 +276,19 @@ export class Menu {
       </div>`;
     this.el.appendChild(d);
     d.querySelector('.no')!.addEventListener('click', () => d.remove());
-    d.addEventListener('click', (e) => { if (e.target === d) d.remove(); });
+    d.addEventListener('click', (e) => { if (e.target === d && !go.disabled) d.remove(); });
     const go = d.querySelector('.go') as HTMLButtonElement;
     go.addEventListener('click', () => {
       if (go.disabled) return;
       go.disabled = true;
       d.querySelector('.scauce-bubble')!.innerHTML = `<b class="scauce-shout">${SCAUCE.accept}</b>`;
       d.querySelector('.scauce-actions')!.remove();
-      setTimeout(() => { d.remove(); this.game.startMode('special', id); }, 1100);
+      // only start if the dialog is still up (Esc during the shout cancels) and nothing else took over
+      setTimeout(() => {
+        if (!d.isConnected || !this.visible) return;
+        d.remove();
+        this.game.startMode('special', id);
+      }, 1100);
     });
     go.focus();
   }
