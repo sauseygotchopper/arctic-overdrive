@@ -213,7 +213,7 @@ export class Snocross implements GameMode {
       this.countdown -= dt;
       const n = Math.ceil(this.countdown - 0.6);
       g.hud.setCountdown(n > 0 ? String(n) : 'GO!');
-      if (this.countdown <= 0.6) { this.state = 'racing'; g.audioCue?.('go'); }
+      if (this.countdown <= 0.6) { this.state = 'racing'; }
     } else if (this.countdown > -0.6) {
       this.countdown -= dt;
       if (this.countdown <= -0.6) g.hud.setCountdown('');

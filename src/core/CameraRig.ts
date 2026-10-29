@@ -28,6 +28,13 @@ export class CameraRig {
     this.initialised = false;
   }
 
+  private shakeAmt = 0;
+
+  /** Kick the camera (hard landings, crashes); decays over ~half a second. */
+  shake(amount: number) {
+    this.shakeAmt = Math.min(0.5, Math.max(this.shakeAmt, amount));
+  }
+
   update(sled: Sled, dt: number) {
     const root = sled.visual.root;
     const p = sled.physics;
@@ -81,6 +88,12 @@ export class CameraRig {
     const buzz = THREE.MathUtils.smoothstep(speed, 22, 40) * 0.025;
     this.camera.position.x += Math.sin(this.t * 37) * buzz;
     this.camera.position.y += Math.sin(this.t * 29 + 1.3) * buzz;
+    if (this.shakeAmt > 0.001) {
+      this.camera.position.x += Math.sin(this.t * 61) * this.shakeAmt;
+      this.camera.position.y += Math.sin(this.t * 53 + 2.1) * this.shakeAmt;
+      this.camera.position.z += Math.sin(this.t * 47 + 0.7) * this.shakeAmt * 0.6;
+      this.shakeAmt *= Math.exp(-dt * 7);
+    }
     this.camera.lookAt(this.look);
     // bank gently into turns
     const yaw = Math.atan2(this.heading.x, this.heading.z);

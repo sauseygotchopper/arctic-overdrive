@@ -2,7 +2,7 @@ import type { Game } from '../core/Game';
 import modesData from '../data/modes.json';
 import freerideData from '../data/freeride.json';
 import { COURSES, fmtTime } from '../modes/TimeTrial';
-import { riderLevel } from '../core/Progression';
+import { riderLevel, SKILLS } from '../core/Progression';
 import { DELIVERY_JOBS, jobPoint } from '../modes/Delivery';
 import { SNOCROSS_EVENTS } from '../modes/Snocross';
 import { SPECIAL_CONTRACTS } from '../modes/SpecialDelivery';
@@ -12,6 +12,21 @@ import { getSled, getPart } from '../vehicles/SledSpec';
 import cargoData from '../data/cargo.json';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+/** How each skills.json perLevel key reads on the skill cards. */
+const SKILL_EFFECT_TEXT: Record<string, (v: number) => string> = {
+  powderTractionPct: (v) => `+${v}% lug bite in soft snow`,
+  flotationPct: (v) => `+${v}% float`,
+  skiBitePct: (v) => `+${v}% ski bite`,
+  steerPct: (v) => `+${v}% steering lock`,
+  hardGripPct: (v) => `+${v}% grip on ice & crust`,
+  airPct: (v) => `+${v}% rotation speed`,
+  impactPct: (v) => `+${v}% landing impact tolerance`,
+  alignRelax: () => 'more forgiving crooked landings',
+  crashKeep: (v) => `+${Math.round(v * 100)}% speed kept on a crash`,
+  roughAbsorb: (v) => `−${Math.round(v * 100)}% chatter on rough snow`,
+  cargoPenaltyPct: (v) => `${v}% cargo weight penalty`,
+  trailerSteady: (v) => `+${v} trailer steadiness`,
+};
 const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m}"></span>` : '');
 
 /**
@@ -21,7 +36,7 @@ const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m
 export class Menu {
   readonly el: HTMLDivElement;
   readonly pauseEl: HTMLDivElement;
-  private view: 'modes' | 'courses' | 'delivery' | 'snocross' | 'special' = 'modes';
+  private view: 'modes' | 'courses' | 'delivery' | 'snocross' | 'special' | 'skills' = 'modes';
   private pauseArgs: [string, boolean] = ['', false];
 
   constructor(private game: Game) {
@@ -43,7 +58,7 @@ export class Menu {
     });
   }
 
-  show(view: 'courses' | 'delivery' | 'snocross' | 'special' | 'modes' = 'modes') {
+  show(view: 'courses' | 'delivery' | 'snocross' | 'special' | 'skills' | 'modes' = 'modes') {
     this.view = view;
     this.render();
     this.el.classList.add('show');
@@ -75,6 +90,8 @@ export class Menu {
         <div class="side-btns">
           <button data-garage="upgrades">Garage</button>
           <button data-garage="dealer">Dealership</button>
+          <button data-skills>Rider skills${g.progression.skillPoints() > 0 ? `<span class="badge">${g.progression.skillPoints()}</span>` : ''}</button>
+          <button data-tutorial>Tutorial</button>
           <button data-settings>Settings</button>
         </div>
         <div class="menu-help">Mouse to choose · <b>Esc</b> back / pause in game</div>
@@ -126,6 +143,8 @@ export class Menu {
       this.renderEvents(head, goalHtml);
     } else if (this.view === 'special') {
       this.renderContracts(head, goalHtml);
+    } else if (this.view === 'skills') {
+      this.renderSkills(head, goalHtml);
     } else {
       const rows = COURSES.map((c) => {
         const r = sd.timeTrials[c.id];
@@ -264,7 +283,48 @@ export class Menu {
     go.focus();
   }
 
+  private renderSkills(head: string, goalHtml: string) {
+    const g = this.game;
+    const pr = g.progression;
+    const lvl = riderLevel(g.save.data.xp);
+    const pts = pr.skillPoints();
+    const cards = SKILLS.map((sk) => {
+      const have = pr.skillLevel(sk.id);
+      const cost = pr.skillCost(sk.id);
+      const pips = Array.from({ length: sk.maxLevel }, (_, i) => `<i class="${i < have ? 'on' : ''}"></i>`).join('');
+      const per = Object.entries(sk.perLevel).map(([k, v]) => SKILL_EFFECT_TEXT[k]?.(v as number) ?? '').filter(Boolean).join(' · ');
+      const can = cost !== null && pts >= cost;
+      return `
+        <div class="skill ${have ? 'has' : ''}">
+          <div class="skill-head"><span class="skill-icon">${sk.icon}</span><div><div class="skill-name">${sk.name}</div><div class="skill-pips">${pips}</div></div><span class="skill-lvl">${have}/${sk.maxLevel}</span></div>
+          <div class="skill-desc">${sk.desc}</div>
+          <div class="skill-per">Per level: ${per}</div>
+          <button class="skill-buy" data-skill="${sk.id}" ${can ? '' : 'disabled'}>${cost === null ? 'Maxed' : `Learn · ${cost} pt${cost === 1 ? '' : 's'}`}</button>
+        </div>`;
+    }).join('');
+    const nextIn = lvl.span - lvl.into;
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Rider skills</div>
+      <div class="skills-bar"><div><b>${pts}</b> skill point${pts === 1 ? '' : 's'} to spend</div><div class="muted">Level ${lvl.level} · next point in ${fmt(nextIn)} XP (earn XP in any mode)</div><button class="skill-reset" ${pr.skillPointsSpent() ? '' : 'disabled'}>Reset skills</button></div>
+      <div class="skills">${cards}</div></div>`;
+    this.bindSide();
+    this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-skill]').forEach((b) => b.addEventListener('click', () => {
+      const err = pr.buySkill(b.dataset.skill!);
+      g.audioCue?.(err ? 'deny' : 'buy');
+      g.refreshPlayer();
+      this.render();
+    }));
+    this.el.querySelector('.skill-reset')!.addEventListener('click', () => {
+      if (pr.resetSkills()) return;
+      g.audioCue?.('click');
+      g.refreshPlayer();
+      this.render();
+    });
+  }
+
   private bindSide() {
+    this.el.querySelector<HTMLButtonElement>('[data-skills]')?.addEventListener('click', () => { this.view = 'skills'; this.render(); });
+    this.el.querySelector<HTMLButtonElement>('[data-tutorial]')?.addEventListener('click', () => this.game.startMode('tutorial'));
     this.el.querySelectorAll<HTMLButtonElement>('[data-garage]').forEach((b) => b.addEventListener('click', () => this.game.openGarage(b.dataset.garage as 'upgrades' | 'dealer')));
     this.el.querySelector<HTMLButtonElement>('[data-settings]')?.addEventListener('click', () => {
       this.hide();

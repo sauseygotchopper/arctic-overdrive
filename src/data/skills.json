@@ -1,0 +1,26 @@
+{
+  "_doc": "Rider skills, bought with skill points: startPoints plus pointsPerLevel for every rider level past 1 (XP from any mode). cost[i] is the price of level i+1. perLevel values are added once per level in SledSpec.deriveParams / Tricks.",
+  "startPoints": 1,
+  "pointsPerLevel": 1,
+  "resetCost": 0,
+  "skills": [
+    { "id": "throttle", "name": "Throttle Control", "icon": "⤒", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Smoother power in deep snow: more lug bite and float, less bogging.",
+      "perLevel": { "powderTractionPct": 5, "flotationPct": 2.5 } },
+    { "id": "carving", "name": "Carving", "icon": "↻", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Sharper turns and better sidehilling: more ski bite and steering lock.",
+      "perLevel": { "skiBitePct": 5, "steerPct": 3, "hardGripPct": 3 } },
+    { "id": "air", "name": "Air Control", "icon": "✈", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Faster flips and spins, more control mid-air.",
+      "perLevel": { "airPct": 9 } },
+    { "id": "landing", "name": "Landing", "icon": "⤓", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Takes harder and more crooked landings, and keeps more speed when it does go wrong.",
+      "perLevel": { "impactPct": 7, "alignRelax": 0.025, "crashKeep": 0.04 } },
+    { "id": "endurance", "name": "Endurance", "icon": "♥", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Rides moguls and rough snow without getting thrown about or slowed.",
+      "perLevel": { "roughAbsorb": 0.07 } },
+    { "id": "hauling", "name": "Hauling", "icon": "⛟", "maxLevel": 5, "cost": [1, 1, 2, 2, 3],
+      "desc": "Handles cargo and trailers better: less weight penalty, steadier trailer.",
+      "perLevel": { "cargoPenaltyPct": -8, "trailerSteady": 3 } }
+  ]
+}

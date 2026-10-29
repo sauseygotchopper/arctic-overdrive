@@ -2,6 +2,8 @@ import { Sled } from '../vehicles/Sled';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
+const THREE_smooth = (x: number, a: number, b: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
 export interface ResultsData {
   title: string;
   time: string;
@@ -47,6 +49,7 @@ export class HUD {
         <div class="hud-wanted"><div class="stars"></div><div class="status"></div><div class="meter"><span></span></div><div class="bust"><label>BOXED IN</label><div><span></span></div></div></div>
       </div>
       <div class="hud-objective"><div class="o-title"></div><div class="o-main"></div><div class="o-sub"></div></div>
+      <div class="hud-speedlines"></div>
       <div class="hud-countdown"></div>
       <div class="hud-warning"></div>
       <div class="hud-replay-tag">● REPLAY <span>V / Esc to exit</span></div>
@@ -106,10 +109,14 @@ export class HUD {
     if (sub.innerHTML !== o.sub) sub.innerHTML = o.sub;
   }
 
+  /** Called when a new countdown number or GO! appears (sound). */
+  onCountdown?: (text: string) => void;
+
   setCountdown(text: string) {
     const el = this.q('.hud-countdown');
     if (el.textContent === text) return;
     el.textContent = text;
+    if (text) this.onCountdown?.(text);
     el.classList.remove('pop');
     void el.offsetWidth; // restart the pop animation
     if (text) el.classList.add('pop');
@@ -171,13 +178,25 @@ export class HUD {
           <div>
             <div class="r-h">Rewards</div>
             ${r.rewards.map((w) => `<div class="r-row"><span>${w.label}</span><span>$${fmt(w.currency)} · ${fmt(w.xp)} XP</span></div>`).join('')}
-            <div class="r-row total"><span>Total</span><span>$${fmt(r.total.currency)} · ${fmt(r.total.xp)} XP</span></div>
+            <div class="r-row total"><span>Total</span><span>$<b class="r-count" data-to="${r.total.currency}">0</b> · <b class="r-count" data-to="${r.total.xp}">0</b> XP</span></div>
           </div>
         </div>
         <div class="r-actions">${r.actions.map((a, i) => `<button data-i="${i}" class="${a.primary ? 'primary' : ''}">${a.label} <kbd>${a.key}</kbd></button>`).join('')}</div>
       </div>`;
     el.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => r.actions[+b.dataset.i!].run()));
     el.classList.add('show');
+    // the total counts up
+    const counters = [...el.querySelectorAll<HTMLElement>('.r-count')];
+    const t0 = performance.now();
+    const tickUp = () => {
+      const k = Math.min(1, (performance.now() - t0) / 900);
+      const e = 1 - Math.pow(1 - k, 3);
+      for (const c of counters) c.textContent = fmt(Number(c.dataset.to) * e);
+      if (k < 1 && el.classList.contains('show')) requestAnimationFrame(tickUp);
+    };
+    requestAnimationFrame(tickUp);
+    // land on the real numbers even if frames aren't running (background tab)
+    setTimeout(() => { for (const c of counters) c.textContent = fmt(Number(c.dataset.to)); }, 950);
     if (this.resultsKeys) window.removeEventListener('keydown', this.resultsKeys);
     this.resultsKeys = (e) => {
       const key = e.code === 'Escape' ? 'Esc' : e.code.replace('Key', '');
@@ -210,6 +229,11 @@ export class HUD {
     const st = sled.stunts;
     const kmh = Math.round(Math.abs(p.speed) * 3.6);
     this.q('.hud-speed .val').textContent = String(kmh);
+    // speed lines creep in from the edges above ~85 km/h
+    const sl = THREE_smooth(kmh, 85, 140);
+    const lines = this.q('.hud-speedlines');
+    lines.style.opacity = (sl * 0.55).toFixed(2);
+    if (sl > 0) lines.style.transform = `rotate(${(Math.random() * 4).toFixed(1)}deg) scale(${(1.05 + Math.random() * 0.04).toFixed(3)})`;
     const rpmFrac = Math.min(1, p.rpm / p.params.maxRpm);
     const fill = this.q('.hud-rpm .fill');
     fill.style.transform = `scaleX(${rpmFrac.toFixed(3)})`;

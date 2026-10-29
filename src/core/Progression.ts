@@ -2,10 +2,13 @@ import { SaveData, newSledSave } from './SaveSystem';
 import { SLEDS, SledSpec, SledSetup, getSled, getPart, partFits, COSMETICS, RIDER_MASS, Livery, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
 import freerideData from '../data/freeride.json';
+import skillsData from '../data/skills.json';
+
+export const SKILLS = skillsData.skills;
 
 export interface Requirement { label: string; have: number; need: number }
 
-/** Rider level from total XP (Phase 7's skill tree spends the points; level is shown everywhere). */
+/** Rider level from total XP: each level past 1 earns skill points (skills.json). */
 export function riderLevel(xp: number): { level: number; into: number; span: number } {
   let level = 1, need = 400, acc = 0;
   while (xp >= acc + need) { acc += need; level++; need = Math.round(need * 1.18); }
@@ -68,9 +71,50 @@ export class Progression {
     const installed = { ...g.installed };
     for (const id of extraParts) { const p = getPart(id); if (p) installed[p.slot] = id; }
     return {
-      spec: getSled(sledId), riderMass: RIDER_MASS, cargoMass, parts: Object.values(installed),
+      spec: getSled(sledId), riderMass: RIDER_MASS, cargoMass, parts: Object.values(installed), skills: { ...this.d.skills },
       livery: livery ?? g.livery, tuning: tuning ?? { ...DEFAULT_TUNING, ...g.tuning },
     };
+  }
+
+  // ---------- rider skills ----------
+
+  /** Points earned so far: startPoints plus pointsPerLevel per rider level past 1. */
+  skillPointsEarned(): number {
+    return skillsData.startPoints + (riderLevel(this.d.xp).level - 1) * skillsData.pointsPerLevel;
+  }
+
+  skillPointsSpent(): number {
+    return SKILLS.reduce((a, sk) => a + sk.cost.slice(0, this.skillLevel(sk.id)).reduce((x, y) => x + y, 0), 0);
+  }
+
+  skillPoints(): number { return this.skillPointsEarned() - this.skillPointsSpent(); }
+
+  skillLevel(id: string): number { return this.d.skills[id] ?? 0; }
+
+  /** Cost of the next level of a skill (null when maxed). */
+  skillCost(id: string): number | null {
+    const sk = SKILLS.find((s) => s.id === id);
+    if (!sk) return null;
+    const lvl = this.skillLevel(id);
+    return lvl >= sk.maxLevel ? null : sk.cost[lvl];
+  }
+
+  /** Error message, or null on success. */
+  buySkill(id: string): string | null {
+    const cost = this.skillCost(id);
+    if (cost === null) return 'Already maxed';
+    if (this.skillPoints() < cost) return `Needs ${cost} skill point${cost === 1 ? '' : 's'}`;
+    this.d.skills[id] = this.skillLevel(id) + 1;
+    this.onChange();
+    return null;
+  }
+
+  resetSkills(): string | null {
+    if (!this.skillPointsSpent()) return 'Nothing to reset';
+    if (skillsData.resetCost && !this.spend(skillsData.resetCost)) return `Needs $${skillsData.resetCost}`;
+    this.d.skills = {};
+    this.onChange();
+    return null;
   }
 
   /** Tuning is free: just store it. */

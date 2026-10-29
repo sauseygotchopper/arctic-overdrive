@@ -17,13 +17,14 @@ import { Garage } from '../ui/Garage';
 import { DriveInput } from '../vehicles/SledPhysics';
 import { Trailer, TrailerUpgrades } from '../vehicles/Trailer';
 import { LooseCargo, TEST_LOADS } from '../vehicles/Cargo';
-import { Input } from './Input';
+import { Input, DEFAULT_KEYS } from './Input';
 import { CameraRig } from './CameraRig';
 import { SaveSystem } from './SaveSystem';
 import { HUD } from '../ui/HUD';
 import { MiniMap } from '../ui/MiniMap';
 import { Menu } from '../ui/Menu';
 import { SettingsMenu } from '../ui/Settings';
+import { AudioSystem } from '../audio/AudioSystem';
 import { Title } from '../ui/Title';
 import { CameraMode } from './CameraRig';
 import { HandlingMode, HANDLING, setHandlingMode, handlingMode } from '../physics/Handling';
@@ -38,6 +39,7 @@ import { Route, RouteStep, corridorsOf } from '../modes/Route';
 import { COURSES, TimeTrial } from '../modes/TimeTrial';
 import { Freeride } from '../modes/Freeride';
 import { Snocross, SNOCROSS_EVENTS } from '../modes/Snocross';
+import { Tutorial } from '../modes/Tutorial';
 import { SpecialDelivery, SPECIAL_CONTRACTS } from '../modes/SpecialDelivery';
 import { Delivery, DELIVERY_JOBS } from '../modes/Delivery';
 import { Replay } from '../modes/Replay';
@@ -54,6 +56,7 @@ export class Game {
   camera = new THREE.PerspectiveCamera(64, 1, 0.2, 8000);
   input = new Input();
   save = new SaveSystem();
+  readonly audio = new AudioSystem(this.save.data.settings.volume);
   physics!: PhysicsWorld;
   terrain!: TerrainData;
   sky!: SkySystem;
@@ -76,7 +79,7 @@ export class Game {
   readonly dev = new DevTools(this);
   mode: GameMode | null = null;
   /** Audio hook – the audio engine (Phase 7) fills this in. */
-  audioCue?: (name: string) => void;
+  audioCue = (name: string) => this.audio.cue(name);
   private state: 'menu' | 'playing' | 'garage' = 'menu';
   private paused = false;
   gfx!: GraphicsPreset;
@@ -179,6 +182,15 @@ export class Game {
     this.rig = new CameraRig(this.camera, this.terrain);
     this.hud = new HUD(this.container);
     this.hud.onMenu = () => this.setPaused(!this.paused);
+    this.hud.onCountdown = (text) => this.audio.cue(text === 'GO!' ? 'go' : 'beep');
+    // every button clicks; cards and buttons tick on hover
+    document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('button:not(:disabled)')) this.audio.cue('click'); });
+    let hovered: Element | null = null;
+    document.addEventListener('pointerover', (e) => {
+      const b = (e.target as HTMLElement).closest('button:not(:disabled)');
+      if (b && b !== hovered) this.audio.cue('hover');
+      hovered = b;
+    });
     this.rig.setMode((this.save.data.settings.camera as CameraMode) || 'chase');
     // on <body>, not the game container: #app is position:fixed (its own stacking context), which left
     // the panel underneath the title overlay when opened from the title screen
@@ -209,7 +221,20 @@ export class Game {
       clock: () => this.sky.clock,
       handling: () => handlingMode(),
       setHandling: (m) => this.setHandling(m),
+      volumes: () => this.save.data.settings.volume,
+      setVolumes: (v) => {
+        this.save.data.settings.volume = v;
+        this.audio.setVolumes(v);
+        this.save.save();
+      },
+      keys: () => this.input.keys,
+      setKeys: (k) => {
+        this.input.keys = k;
+        this.save.data.settings.keys = k;
+        this.save.save();
+      },
     });
+    this.input.keys = { ...structuredClone(DEFAULT_KEYS), ...this.save.data.settings.keys } as typeof this.input.keys;
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
     this.loose = new LooseCargo(this.physics, this.scene);
@@ -261,13 +286,16 @@ export class Game {
   closeGarage() {
     this.garage.close();
     this.showroom.active = false;
-    // rebuild the ridden sled only if its setup actually changed
-    if (JSON.stringify(this.progression.setupFor(this.save.data.currentSled)) !== this.playerSetupKey) {
-      this.createPlayer();
-      this.applyLighting();
-      this.simulate(1, IDLE_INPUT);
-    }
+    this.refreshPlayer();
     this.toMenu();
+  }
+
+  /** Rebuild the ridden sled only if its setup (parts, tuning, skills...) actually changed. */
+  refreshPlayer() {
+    if (JSON.stringify(this.progression.setupFor(this.save.data.currentSled)) === this.playerSetupKey) return;
+    this.createPlayer();
+    this.applyLighting();
+    this.simulate(1, IDLE_INPUT);
   }
 
   /** Per-frame: lamps, headlights, windows and snowfall follow the continuous time of day and the weather. */
@@ -279,6 +307,7 @@ export class Game {
     this.effects.snowIntensity = Math.min(1, Math.max(fx.snow, 0.2 + sky.cloud * 0.8) + sky.night * 0.15);
     this.terrainMesh.sparkle.value = sky.sunVisible * 2.5;
     this.effects.wind = Math.max(fx.wind, 0.4 + sky.cloud * 2.2);
+    this.effects.breath = 0.35 + sky.night * 0.5 + (sky.weather === 'clear' ? 0 : 0.15);
     this.effects.setFlakeLight(THREE.MathUtils.lerp(1.1, 0.3, sky.night), THREE.MathUtils.lerp(1.0, 0.12, sky.night));
     this.effects.sprayColor.lerp(sky.hemi.color, sky.night * 0.6); // night spray takes on the blue ambient instead of reading as grey smoke
   }
@@ -305,15 +334,17 @@ export class Game {
       : id === 'snocross' ? new Snocross(this, arg ?? SNOCROSS_EVENTS[0].id)
       : id === 'delivery' ? new Delivery(this, arg ?? DELIVERY_JOBS[0].id)
       : id === 'special' ? new SpecialDelivery(this, arg ?? SPECIAL_CONTRACTS[0].id)
+      : id === 'tutorial' ? new Tutorial(this)
       : new Freeride(this);
     this.mode.enter();
     this.hud.setFreerideHelp(id === 'freeride');
+    this.hud.el.classList.toggle('in-tutorial', id === 'tutorial');
     this.hud.el.classList.remove('in-menu');
     this.state = 'playing';
     this.acc = 0;
   }
 
-  toMenu(view?: 'delivery' | 'snocross' | 'courses' | 'special') {
+  toMenu(view?: 'delivery' | 'snocross' | 'courses' | 'special' | 'skills') {
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -463,6 +494,8 @@ export class Game {
       this.mode?.onStunt?.(e);
       switch (e.type) {
         case 'landed':
+          this.audio.land(e.impact, e.quality === 'crash');
+          if (e.impact > 4 || e.quality === 'crash') this.rig.shake(Math.min(0.35, e.impact * 0.025 + (e.quality === 'crash' ? 0.12 : 0)));
           if (e.quality === 'crash') this.hud.banner('Crash!', 'bad');
           else if (e.quality === 'sketchy') this.hud.banner('Sketchy landing', 'warn', 1.2);
           if (e.impact > 3) this.effects.burst(this.player.physics.position, e.impact);
@@ -470,7 +503,11 @@ export class Game {
         case 'lost':
           this.hud.toast(`Combo lost −${e.points.toLocaleString('en-US')}`);
           break;
+        case 'trick':
+          this.audio.cue('trick');
+          break;
         case 'banked':
+          this.audio.cue('banked');
           this.addRewards(e.currency, e.xp);
           this.hud.banner(`+${e.points.toLocaleString('en-US')}${e.multiplier > 1 ? `  (×${e.multiplier})` : ''}`, 'good', 2.2);
           this.hud.toast(`+$${e.currency} · +${e.xp} XP`, 2.2);
@@ -541,6 +578,21 @@ export class Game {
   }
 
   private tick(dt: number) {
+    this.frame(dt);
+    // sound follows what's on screen: the ridden sled while playing, a quiet idle behind the menu
+    const p = this.player.physics;
+    const playing = this.state === 'playing' && !this.paused && !this.photo.active && !this.replay.active && !this.title.visible;
+    const menuIdle = this.state === 'menu' && !this.title.visible;
+    this.audio.update(dt, playing || menuIdle ? {
+      rpm: p.rpm, idleRpm: p.params.idleRpm, maxRpm: p.params.maxRpm, throttle: playing ? this.lastThrottle : 0,
+      speed: Math.abs(p.speed), surface: p.surface.key, grounded: p.groundedCount > 0, presence: playing ? 1 : 0.3,
+    } : null);
+    if (!playing) this.audio.setChase(null, null);
+  }
+
+  private lastThrottle = 0;
+
+  private frame(dt: number) {
     this.adaptResolution(dt);
     const input = this.input;
     input.update();
@@ -550,7 +602,7 @@ export class Game {
       if (this.warmFrames <= 0) { input.endFrame(); return; }
       this.warmFrames--;
     }
-    if (this.settings.visible && input.consumePressed('pause')) this.closeSettings();
+    if (this.settings.visible && input.consumePressed('pause') && !this.settings.capturing) this.closeSettings();
     const freeride = this.mode?.id === 'freeride';
 
     // ---- photo mode: paused world, free camera ----
@@ -617,6 +669,7 @@ export class Game {
     let steps = 0;
     const live = this.mode?.controlsEnabled ?? false;
     const drive = live ? input.drive() : IDLE_INPUT;
+    this.lastThrottle = drive.throttle;
     const tricks = input.tricks(drive.steer, drive.leanX, drive.leanZ);
     if (!live) tricks.jumpHeld = false;
     while (this.acc >= PHYSICS_DT && steps < MAX_STEPS) {
@@ -635,6 +688,7 @@ export class Game {
     }
     if (this.player.flippedTime > 4 && !this.mode?.recover?.()) this.player.recover();
     this.effects.emitFromSled(this.player, dt);
+    this.effects.emitExhaust(this.player, dt, drive.throttle);
     this.marks.update(this.player);
     this.snow.stampSled(this.player);
     if (this.player.trailer) {

@@ -473,3 +473,85 @@ button { font: inherit; color: inherit; }
 .scauce-actions kbd { margin-left: 6px; font-size: 10px; opacity: .7; }
 .r-quote { margin-top: 6px; font-style: italic; color: #ffb347; }
 @media (max-width: 560px) { .scauce-box { flex-direction: column; text-align: center; } .scauce-bubble::before { display: none; } .scauce-card { flex-direction: column; } }
+
+/* Rider skills */
+.side-btns .badge { display: inline-block; min-width: 20px; margin-left: 8px; padding: 1px 6px; border-radius: 10px; background: var(--accent, #ff6b2c); color: #fff; font-size: 13px; text-align: center; vertical-align: 2px; letter-spacing: 0; }
+.skills-bar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 16px; border-radius: 14px; background: rgba(11,22,38,.5); border: 1px solid rgba(156,195,230,.18); }
+.skills-bar b { font-family: var(--font-display); font-size: 28px; color: var(--accent, #ff6b2c); margin-right: 4px; }
+.skills-bar .muted { color: var(--muted); font-size: 13px; flex: 1; }
+.skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.skill { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: rgba(11,22,38,.55); border: 1px solid rgba(156,195,230,.16); transition: border-color .2s, transform .2s; }
+.skill:hover { border-color: rgba(156,195,230,.4); transform: translateY(-2px); }
+.skill.has { border-color: rgba(255,107,44,.35); }
+.skill-head { display: flex; align-items: center; gap: 12px; }
+.skill-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border-radius: 12px; background: rgba(156,195,230,.12); font-size: 22px; }
+.skill-head > div { flex: 1; }
+.skill-name { font-family: var(--font-display); font-size: 20px; letter-spacing: .04em; }
+.skill-pips { display: flex; gap: 4px; margin-top: 4px; }
+.skill-pips i { width: 18px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.14); }
+.skill-pips i.on { background: var(--accent, #ff6b2c); box-shadow: 0 0 8px rgba(255,107,44,.5); }
+.skill-lvl { font-weight: 800; color: var(--muted); }
+.skill-desc { font-size: 13px; line-height: 1.45; }
+.skill-per { font-size: 12px; color: var(--muted); line-height: 1.4; flex: 1; }
+.skill-buy, .skill-reset { padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(156,195,230,.3); background: rgba(255,255,255,.08); color: inherit; font-weight: 800; cursor: pointer; transition: background .15s, transform .1s; }
+.skill-buy:not(:disabled) { background: var(--accent, #ff6b2c); border-color: transparent; color: #fff; }
+.skill-buy:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+.skill-buy:active, .skill-reset:active { transform: translateY(1px) scale(.98); }
+.skill-buy:disabled, .skill-reset:disabled { opacity: .45; cursor: default; }
+
+/* speed lines: thin radial streaks masked to the screen edges */
+.hud-speedlines { position: absolute; inset: -8%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.0) 0deg 2.2deg, rgba(255,255,255,.55) 2.4deg 2.6deg, rgba(255,255,255,0) 2.8deg 7deg);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 38%, #000 78%); mask-image: radial-gradient(ellipse at center, transparent 38%, #000 78%); }
+
+/* settings: audio + key remap */
+.set-card.audio .vol { display: grid; grid-template-columns: 120px 1fr 32px; align-items: center; gap: 10px; margin: 6px 0; font-size: 12px; color: var(--muted); }
+.set-card.audio input[type=range] { width: 100%; accent-color: var(--accent); }
+.set-card.audio .vol b { text-align: right; color: var(--text); font-size: 12px; }
+.set-card.audio .mute { font-size: 11px; letter-spacing: .08em; color: var(--muted); display: flex; gap: 6px; align-items: center; text-transform: none; cursor: pointer; }
+.set-card.controls .keys { grid-template-columns: 1fr auto; }
+.set-card .rebind { min-width: 74px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); font: 700 12px/1 inherit; cursor: pointer; transition: background .15s, border-color .15s; }
+.set-card .rebind:hover { border-color: var(--accent); }
+.set-card .rebind.wait { border-color: var(--accent); color: var(--accent); animation: rebind-blink .8s steps(2) infinite; }
+@keyframes rebind-blink { 50% { opacity: .5; } }
+.keys-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.keys-foot button { padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line); background: transparent; color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* tutorial card */
+.tutorial { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); padding: 14px 16px 12px; border-radius: 16px;
+  background: rgba(11,22,38,.78); backdrop-filter: blur(8px); border: 1px solid rgba(255,90,31,.35); box-shadow: 0 12px 40px rgba(0,0,0,.35); pointer-events: auto; animation: tut-in .3s ease-out; }
+@keyframes tut-in { from { opacity: 0; transform: translate(-50%, -10px); } }
+.tutorial .tut-skip { position: absolute; top: 10px; right: 12px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+.tutorial .tut-skip:hover { color: var(--text); border-color: var(--muted); }
+.tut-top { display: flex; align-items: center; gap: 10px; padding-right: 110px; }
+.tut-step { font-size: 10px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
+.tut-dots { display: flex; gap: 4px; }
+.tut-dots span { width: 14px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.15); }
+.tut-dots span.done { background: #7cf3b0; }
+.tut-dots span.now { background: var(--accent); }
+.tut-title { margin-top: 8px; font-family: var(--font-display); font-size: 30px; transform: skewX(-6deg); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tut-keys { display: inline-flex; align-items: center; gap: 4px; transform: skewX(6deg); font-family: system-ui, sans-serif; }
+.tut-keys kbd { min-width: 30px; padding: 5px 8px; border-radius: 7px; background: var(--paper, #f2f4fa); color: var(--ink, #10182a); font-size: 13px; font-weight: 800; text-align: center; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.tut-keys i { font-style: normal; color: var(--muted); margin: 0 4px; }
+.tut-text { margin-top: 6px; font-size: 14px; line-height: 1.45; }
+.tut-bar { height: 5px; margin-top: 10px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.tut-bar span { display: block; height: 100%; background: var(--accent); transition: width .15s; }
+.tut-note { margin-top: 8px; font-size: 13px; color: #ffd166; }
+.hud.in-tutorial .hud-objective { display: none; }
+
+/* polish: view transitions, press feedback, staggered cards */
+.menu-main { animation: view-in .28s cubic-bezier(.2,.8,.3,1); }
+@keyframes view-in { from { opacity: 0; transform: translateY(10px); } }
+.cards > *, .courses > *, .skills > * { animation: card-in .35s cubic-bezier(.2,.8,.3,1) backwards; }
+.cards > :nth-child(2), .courses > :nth-child(2), .skills > :nth-child(2) { animation-delay: .04s; }
+.cards > :nth-child(3), .courses > :nth-child(3), .skills > :nth-child(3) { animation-delay: .08s; }
+.cards > :nth-child(4), .courses > :nth-child(4), .skills > :nth-child(4) { animation-delay: .12s; }
+.cards > :nth-child(5), .courses > :nth-child(5), .skills > :nth-child(5) { animation-delay: .16s; }
+.cards > :nth-child(n+6), .courses > :nth-child(n+6), .skills > :nth-child(n+6) { animation-delay: .2s; }
+@keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+.card:active:not(:disabled), .course:active:not(:disabled), .side-btns button:active { transform: translateY(1px) scale(.985); }
+.hud-results.show .r-card { animation: results-in .4s cubic-bezier(.2,1.2,.4,1); }
+@keyframes results-in { from { opacity: 0; transform: translateY(18px) scale(.96); } }
+.r-row.total b { font-weight: inherit; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .menu-main, .cards > *, .courses > *, .skills > *, .hud-results.show .r-card, .tutorial { animation: none !important; } }
+@media (max-width: 1100px) { .tutorial { top: 150px; } }

@@ -147,6 +147,23 @@ Presets live in `src/core/Graphics.ts` and are picked in the pause menu (the gam
 - **High** — soft 2048 shadows, GTAO, bloom, sun shafts, speed blur, 6 lamp lights.
 On every preset the pixel ratio drops automatically (down to 60%) if frames run longer than ~19 ms.
 
+### Rider skills
+Rider level (from XP in any mode) earns skill points: one to start plus one per level. Spend them in
+**Rider skills** on the main menu (`src/data/skills.json`): Throttle Control (lug bite + float in soft snow),
+Carving (ski bite, steering lock, ice grip), Air Control (rotation speed), Landing (impact and alignment
+tolerance, speed kept on a crash), Endurance (less chatter on rough snow) and Hauling (lighter cargo
+penalty, steadier trailer). Effects are applied in `deriveParams` and `Tricks`; reset is free.
+
+### Tutorial, settings & audio
+- First launch goes straight into a seven-step tutorial (throttle, steer, brake, lean, pop, a trick off
+  a tabletop, a clean landing) with a first-time bonus; replay it from **Tutorial** on the menu.
+- Settings add volume sliders (master, engine, effects, ambience, menus, mute) and click-to-rebind
+  keyboard controls with reset to defaults; both are saved.
+- Audio is sample-based: put recordings in `public/audio/` (file list in `public/audio/README.md`,
+  names and levels in `src/data/audio.json`). The engine loop is pitched to rpm, snow loops follow the
+  surface, wind follows speed, and the chase adds a panned siren and rotor. Missing files are silent.
+- Effects: exhaust smoke and cold breath puffs, speed lines above ~85 km/h, camera shake on hard landings.
+
 ## Layout
 - `src/core` — game loop (fixed 60 Hz physics + interpolated rendering), input, camera, save
 - `src/physics` — Rapier world, terrain heightfield, surface definitions
@@ -155,8 +172,9 @@ On every preset the pixel ratio drops automatically (down to 60%) if frames run 
 - `src/render` — post-processing chain
 - `src/modes` — GameMode interface, Freeride, TimeTrial, Snocross, Delivery, SpecialDelivery, routes, checkpoints, ghosts, replay, photo mode, `ai/RouteFollower`, `ai/RaceAI`, `ai/PursuitAI`
 - `src/ui` — HUD (with minimap), title/loading screen (`Title.ts`), mode menu and pause card (`Menu.ts`), settings panel (`Settings.ts`), garage/dealership, showroom (3D garage scene), styles
-- `src/core/Progression.ts` — every purchase/unlock/install rule
-- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`, `deliveries.json`, `snocross.json`, `special.json`
+- `src/audio` — sample-based audio system
+- `src/core/Progression.ts` — every purchase/unlock/install/skill rule
+- `src/data` — all tunables: `surfaces.json`, `sleds.json`, `world.json` (incl. jumps), `tricks.json`, `handling.json`, `parts.json`, `trailers.json`, `cargo.json`, `deliveries.json`, `snocross.json`, `special.json`, `skills.json`, `audio.json`
 
 ## Debugging
 - `__game.simulate(seconds, { throttle: 1, steer: 0.5 }, { jump: true })` — deterministic physics steps.

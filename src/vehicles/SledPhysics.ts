@@ -196,7 +196,7 @@ export class SledPhysics {
   /** Bad landing: dump speed and lock the throttle while the rider gathers themselves. */
   crash() {
     const v = this.body.linvel();
-    const k = tricksData.landing.crashSpeedKeep;
+    const k = Math.min(0.92, tricksData.landing.crashSpeedKeep + this.params.crashKeepAdd);
     this.body.setLinvel({ x: v.x * k, y: v.y * 0.4, z: v.z * k }, true);
     const w = this.body.angvel();
     this.body.setAngvel({ x: w.x * 0.3, y: w.y * 0.3, z: w.z * 0.3 }, true);
@@ -560,7 +560,7 @@ export class SledPhysics {
       // In the air the rider rotates the sled with body English plus track gyro (throttle = nose up,
       // brake = nose down). Torques are fixed, so heavier setups rotate slower.
       const air = tricksData.air;
-      const k = this.airControlScale;
+      const k = this.airControlScale * this.params.airSkill;
       const pitchIn = -this.leanZS + (this.throttleS - input.brake) * air.gyroThrottle;
       const t = new THREE.Vector3()
         .addScaledVector(this.right, pitchIn * air.pitchTorque * k)

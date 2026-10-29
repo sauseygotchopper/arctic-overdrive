@@ -17,6 +17,7 @@
     "allCollectibles": { "currency": 2500, "xp": 800 },
     "trickSpotMultiplier": 2
   },
+  "tutorial": { "currency": 500, "xp": 250 },
   "modes": [
     { "id": "freeride",  "name": "Freeride",  "tagline": "Open valley. No clock.", "description": "Explore Frostpine Valley, hunt frost crystals, find scenic viewpoints and throw down at trick spots. Change the time of day and weather, then snap it in photo mode.", "available": true },
     { "id": "timeTrial", "name": "Time Trial", "tagline": "Beat the clock. Beat your ghost.", "description": "Checkpoint courses across mixed snow. Race your best-run ghost for bronze, silver and gold.", "available": true },

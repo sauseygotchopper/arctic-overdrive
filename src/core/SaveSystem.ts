@@ -19,7 +19,15 @@ export interface SaveData {
   ownedSleds: string[];
   currentSled: string;
   sleds: Record<string, SledSave>;
-  settings: { quality: Quality; timeOfDay: string; weather: string; camera: string; dayCycle: boolean; handling: HandlingMode };
+  settings: {
+    quality: Quality; timeOfDay: string; weather: string; camera: string; dayCycle: boolean; handling: HandlingMode;
+    /** 0..1 per bus. */
+    volume: { master: number; engine: number; effects: number; ambient: number; ui: number; muted: boolean };
+    /** Remapped keyboard bindings (action → key codes); missing actions use the defaults. */
+    keys: Record<string, string[]>;
+  };
+  /** Rider skill levels by skills.json id. */
+  skills: Record<string, number>;
   timeTrials: Record<string, { best: number | null; times: number[]; splits: number[]; medals: string[] }>;
   freeride: { crystals: string[]; viewpoints: string[] };
   delivery: { completed: number; jobs: Record<string, { done: number; bestPay: number; bestTime: number | null }> };
@@ -40,7 +48,11 @@ export const DEFAULT_SAVE: SaveData = {
   ownedSleds: [STARTER_SLED],
   currentSled: STARTER_SLED,
   sleds: { [STARTER_SLED]: newSledSave() },
-  settings: { quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase', dayCycle: false, handling: 'realistic' },
+  settings: {
+    quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase', dayCycle: false, handling: 'realistic',
+    volume: { master: 0.8, engine: 0.7, effects: 0.8, ambient: 0.6, ui: 0.6, muted: false }, keys: {},
+  },
+  skills: {},
   timeTrials: {},
   freeride: { crystals: [], viewpoints: [] },
   delivery: { completed: 0, jobs: {} },
@@ -83,7 +95,11 @@ function migrate(parsed: any): SaveData {
     ...structuredClone(DEFAULT_SAVE),
     ...parsed,
     version: 2,
-    settings: { ...DEFAULT_SAVE.settings, ...parsed.settings },
+    settings: {
+      ...DEFAULT_SAVE.settings, ...parsed.settings,
+      volume: { ...DEFAULT_SAVE.settings.volume, ...parsed.settings?.volume }, keys: { ...parsed.settings?.keys },
+    },
+    skills: { ...parsed.skills },
     freeride: { ...DEFAULT_SAVE.freeride, ...parsed.freeride },
     delivery: { ...DEFAULT_SAVE.delivery, ...parsed.delivery },
     snocross: parsed.snocross ?? {},

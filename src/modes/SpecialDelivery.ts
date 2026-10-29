@@ -162,6 +162,7 @@ export class SpecialDelivery implements GameMode {
     g.hud.setCountdown('');
     g.hud.setWanted(null);
     g.hud.setWarning('');
+    g.audio.setChase(null, null);
   }
 
   private clearAgents() {
@@ -345,6 +346,7 @@ export class SpecialDelivery implements GameMode {
     const now = this.stars;
     if (now > before) {
       this.maxStarsReached = Math.max(this.maxStarsReached, now);
+      g.audioCue('wanted');
       g.hud.banner(`${'★'.repeat(now)}  ${now >= S.helicopterAt && before < S.helicopterAt ? 'Helicopter inbound' : 'Wanted level up'}`, 'warn', 2.2);
     }
 
@@ -394,6 +396,7 @@ export class SpecialDelivery implements GameMode {
       a.lights[1].visible = a.ai.mode === 'leave' || !flash;
     }
     this.updateHeli(dt);
+    this.updateChaseAudio();
     (this.marker.children[1] as THREE.Mesh).scale.setScalar(1 + 0.05 * Math.sin(this.t * 3));
 
     if (this.state === 'countdown') {
@@ -430,6 +433,27 @@ export class SpecialDelivery implements GameMode {
     const inRing = dist < 12;
     g.hud.setWarning(this.state === 'running' && inRing && this.status === 'chase' ? 'Lose them before the drop!' : this.bust > 0.25 ? 'Boxed in – get moving!' : '');
     if (this.state === 'running' && inRing && this.status !== 'chase' && Math.abs(pp.speed) < 3.5) this.deliver();
+  }
+
+  /** Siren from the nearest agent still on the job, rotor from the helicopter, panned around the camera. */
+  private updateChaseAudio() {
+    const g = this.game;
+    const cam = g.camera.position;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(g.camera.quaternion);
+    const pos = (p: THREE.Vector3) => {
+      const d = p.clone().sub(cam);
+      const dist = d.length();
+      return { dist, pan: dist > 0.1 ? d.normalize().dot(right) : 0 };
+    };
+    let nearest: THREE.Vector3 | null = null;
+    let best = Infinity;
+    for (const a of this.agents) {
+      if (a.ai.mode === 'leave') continue;
+      const d = a.sled.physics.position.distanceTo(cam);
+      if (d < best) { best = d; nearest = a.sled.physics.position; }
+    }
+    const live = this.state !== 'countdown';
+    g.audio.setChase(live && nearest ? pos(nearest) : null, live && this.heli.active && !this.heliLeaving ? pos(this.heli.root.position) : null);
   }
 
   private updateHeli(dt: number) {
@@ -505,6 +529,7 @@ export class SpecialDelivery implements GameMode {
     g.save.data.special.busts++;
     g.save.save();
     this.endChase();
+    g.audioCue('busted');
     g.hud.banner('BUSTED', 'bad', 3);
     g.hud.showResults({
       title: `${this.c.name} · Busted`,

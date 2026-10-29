@@ -1,0 +1,37 @@
+{
+  "_doc": "Sample-based audio (src/audio/AudioSystem.ts). Put recordings in public/audio/ with these file names (ogg, mp3 or wav – change the extension here to match). Any file that's missing is silent. engine is a seamless loop of a sled at steady rpm, recorded at engineRecordedRpm; it is pitched to the live rpm. surfaceLoops map each snow surface to a loop under the track. gain is per sample (0..1) on its bus.",
+  "engineRecordedRpm": 6000,
+  "samples": {
+    "engine":       { "file": "engine_loop.ogg",   "bus": "engine",  "gain": 0.8 },
+    "snow_groomed": { "file": "snow_groomed.ogg",  "bus": "effects", "gain": 0.6 },
+    "snow_powder":  { "file": "snow_powder.ogg",   "bus": "effects", "gain": 0.6 },
+    "snow_crust":   { "file": "snow_crust.ogg",    "bus": "effects", "gain": 0.6 },
+    "snow_ice":     { "file": "snow_ice.ogg",      "bus": "effects", "gain": 0.5 },
+    "snow_slush":   { "file": "snow_slush.ogg",    "bus": "effects", "gain": 0.6 },
+    "snow_moguls":  { "file": "snow_moguls.ogg",   "bus": "effects", "gain": 0.6 },
+    "wind":         { "file": "wind_loop.ogg",     "bus": "ambient", "gain": 0.5 },
+    "siren":        { "file": "siren_loop.ogg",    "bus": "effects", "gain": 0.6 },
+    "helicopter":   { "file": "helicopter_loop.ogg", "bus": "effects", "gain": 0.8 },
+    "land":         { "file": "land.ogg",          "bus": "effects", "gain": 0.8 },
+    "crash":        { "file": "crash.ogg",         "bus": "effects", "gain": 0.9 },
+    "click":        { "file": "ui_click.ogg",      "bus": "ui",      "gain": 0.5 },
+    "hover":        { "file": "ui_hover.ogg",      "bus": "ui",      "gain": 0.2 },
+    "buy":          { "file": "ui_buy.ogg",        "bus": "ui",      "gain": 0.6 },
+    "deny":         { "file": "ui_deny.ogg",       "bus": "ui",      "gain": 0.5 },
+    "beep":         { "file": "countdown.ogg",     "bus": "ui",      "gain": 0.6 },
+    "go":           { "file": "countdown_go.ogg",  "bus": "ui",      "gain": 0.7 },
+    "checkpoint":   { "file": "checkpoint.ogg",    "bus": "ui",      "gain": 0.6 },
+    "finish":       { "file": "finish.ogg",        "bus": "ui",      "gain": 0.7 },
+    "pickup":       { "file": "pickup.ogg",        "bus": "ui",      "gain": 0.6 },
+    "trick":        { "file": "trick.ogg",         "bus": "effects", "gain": 0.5 },
+    "banked":       { "file": "banked.ogg",        "bus": "ui",      "gain": 0.6 },
+    "wanted":       { "file": "wanted.ogg",        "bus": "ui",      "gain": 0.6 },
+    "busted":       { "file": "busted.ogg",        "bus": "ui",      "gain": 0.7 },
+    "tutorial":     { "file": "tutorial_step.ogg", "bus": "ui",      "gain": 0.5 }
+  },
+  "surfaceLoops": {
+    "groomed": "snow_groomed", "powder": "snow_powder", "crust": "snow_crust",
+    "ice": "snow_ice", "slush": "snow_slush", "moguls": "snow_moguls"
+  },
+  "chase": { "sirenFalloff": 30, "rotorFalloff": 45 }
+}

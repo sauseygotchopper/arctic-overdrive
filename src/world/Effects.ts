@@ -5,6 +5,7 @@ import { Trailer } from '../vehicles/Trailer';
 
 const SPRAY_MAX = 2500;
 const FLAKES = 6000;
+const PUFF_MAX = 360;
 
 const flakeVert = /* glsl */ `
   attribute float aSize;
@@ -60,6 +61,19 @@ export class Effects {
   private flakeVel = new Float32Array(FLAKES);
   private flakeMat: THREE.ShaderMaterial;
   sprayColor: THREE.Color;
+  // exhaust and breath: slow, rising, fading puffs in their own small pool
+  private puffs: THREE.Points;
+  private pp = new Float32Array(PUFF_MAX * 3);
+  private pv = new Float32Array(PUFF_MAX * 3);
+  private pLife = new Float32Array(PUFF_MAX);
+  private pMax = new Float32Array(PUFF_MAX);
+  private pSize = new Float32Array(PUFF_MAX);
+  private pNext = 0;
+  private exhaustAcc = 0;
+  private breathT = 0;
+  puffColor = new THREE.Color(0xdfe5ee);
+  /** 0..1: how visible breath is (cold night air shows it most). */
+  breath = 0.4;
   snowIntensity = 0.6;
   wind = 0.5;
 
@@ -77,6 +91,18 @@ export class Effects {
     this.spray = new THREE.Points(g, m);
     this.spray.frustumCulled = false;
     scene.add(this.spray);
+
+    const pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(this.pp, 3).setUsage(THREE.DynamicDrawUsage));
+    pg.setAttribute('aLife', new THREE.BufferAttribute(this.pLife, 1).setUsage(THREE.DynamicDrawUsage));
+    pg.setAttribute('aSize', new THREE.BufferAttribute(this.pSize, 1).setUsage(THREE.DynamicDrawUsage));
+    this.puffs = new THREE.Points(pg, new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: this.puffColor } },
+      vertexShader: sprayVert, fragmentShader: sprayFrag.replace('vLife * 0.75', 'vLife * 0.32'),
+      transparent: true, depthWrite: false,
+    }));
+    this.puffs.frustumCulled = false;
+    scene.add(this.puffs);
 
     const fp = new Float32Array(FLAKES * 3);
     const fs = new Float32Array(FLAKES);
@@ -107,6 +133,43 @@ export class Effects {
     this.life[i] = 1;
     this.maxLife[i] = life;
     this.size[i] = size;
+  }
+
+  private puff(p: THREE.Vector3, v: THREE.Vector3, life: number, size: number) {
+    const i = this.pNext;
+    this.pNext = (this.pNext + 1) % PUFF_MAX;
+    this.pp.set([p.x, p.y, p.z], i * 3);
+    this.pv.set([v.x, v.y, v.z], i * 3);
+    this.pLife[i] = 1;
+    this.pMax[i] = life;
+    this.pSize[i] = size;
+  }
+
+  /** Two-stroke smoke from under the hood (more on the throttle) and the rider's breath in the cold. */
+  emitExhaust(sled: Sled, dt: number, throttle: number) {
+    const ph = sled.physics;
+    const root = sled.visual.root;
+    const r = Math.min(1, ph.rpm / ph.params.maxRpm);
+    this.exhaustAcc += dt * (4 + throttle * 22 + r * 10);
+    const at = new THREE.Vector3();
+    const v = new THREE.Vector3();
+    while (this.exhaustAcc >= 1) {
+      this.exhaustAcc -= 1;
+      at.set(0.32, 0.28, 0.7).applyMatrix4(root.matrixWorld);
+      v.copy(ph.velocity).multiplyScalar(0.6).addScaledVector(ph.right, 0.6 + Math.random() * 0.6);
+      v.y += 0.4 + Math.random() * 0.6;
+      this.puff(at, v, 0.8 + Math.random() * 0.8, 0.5 + throttle * 0.5 + Math.random() * 0.4);
+    }
+    this.breathT -= dt;
+    if (this.breathT <= 0 && this.breath > 0.05) {
+      this.breathT = 2.2 + Math.random() * 1.4;
+      at.copy(sled.visual.headLocal).add(new THREE.Vector3(0, -0.05, 0.25)).applyMatrix4(root.matrixWorld);
+      for (let i = 0; i < 5; i++) {
+        v.copy(ph.velocity).multiplyScalar(0.85).addScaledVector(ph.forward, 0.5 + Math.random() * 0.4);
+        v.y += 0.15 + Math.random() * 0.2;
+        this.puff(at, v, 0.9 + Math.random() * 0.5, 0.25 + this.breath * 0.25);
+      }
+    }
   }
 
   emitFromSled(sled: Sled, dt: number) {
@@ -173,6 +236,7 @@ export class Effects {
   setFlakeLight(brightness: number, spray = brightness) {
     this.flakeMat.uniforms.uColor.value.setRGB(0.96, 0.97, 1).multiplyScalar(brightness);
     this.sprayColor.setRGB(0.92, 0.94, 1).multiplyScalar(spray);
+    this.puffColor.setRGB(0.87, 0.9, 0.95).multiplyScalar(spray);
   }
 
   update(dt: number, camPos: THREE.Vector3) {
@@ -187,6 +251,24 @@ export class Effects {
       this.sp[o + 1] += this.sv[o + 1] * dt;
       this.sp[o + 2] += this.sv[o + 2] * dt;
     }
+    for (let i = 0; i < PUFF_MAX; i++) {
+      if (this.pLife[i] <= 0) continue;
+      this.pLife[i] -= dt / this.pMax[i];
+      const o = i * 3;
+      const drag = Math.exp(-dt * 1.6);
+      this.pv[o] = this.pv[o] * drag + this.wind * 0.3 * dt;
+      this.pv[o + 1] = this.pv[o + 1] * drag + 0.5 * dt;
+      this.pv[o + 2] *= drag;
+      this.pp[o] += this.pv[o] * dt;
+      this.pp[o + 1] += this.pv[o + 1] * dt;
+      this.pp[o + 2] += this.pv[o + 2] * dt;
+      this.pSize[i] += dt * 0.6; // puffs spread as they drift
+    }
+    const pg = this.puffs.geometry;
+    pg.attributes.position.needsUpdate = true;
+    pg.attributes.aLife.needsUpdate = true;
+    pg.attributes.aSize.needsUpdate = true;
+
     const g = this.spray.geometry;
     g.attributes.position.needsUpdate = true;
     g.attributes.aLife.needsUpdate = true;

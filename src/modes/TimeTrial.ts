@@ -210,7 +210,6 @@ export class TimeTrial implements GameMode {
       g.hud.setCountdown(n > 0 ? String(n) : 'GO!');
       if (this.countdown <= 0.6) {
         this.state = 'racing';
-        this.game.audioCue?.('go');
       }
     } else if (this.state === 'racing' && this.countdown > -0.6) {
       this.countdown -= dt;

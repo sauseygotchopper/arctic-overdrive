@@ -165,12 +165,13 @@ export class StuntSystem {
     this.airTime = 0;
     const align = p.up.dot(p.groundNormal);
     const impact = Math.max(0, -p.velocity.dot(p.groundNormal));
-    const maxImpact = (L.maxImpactBase + (p.params.travelFront + p.params.travelRear) * L.impactPerTravel) * (0.75 + p.params.durability * 0.4) * Math.sqrt(p.params.springMult);
+    const maxImpact = (L.maxImpactBase + (p.params.travelFront + p.params.travelRear) * L.impactPerTravel) * (0.75 + p.params.durability * 0.4) * Math.sqrt(p.params.springMult) * p.params.landingImpactMult;
     const posing = this.rider.poseAmount > L.poseCrashAmount;
 
     let quality: LandingQuality = 'clean';
-    if (posing || align < L.sketchyAlign || impact > maxImpact * 1.3) quality = 'crash';
-    else if (align < L.cleanAlign || impact > maxImpact) quality = 'sketchy';
+    const relax = p.params.landingAlignRelax;
+    if (posing || align < L.sketchyAlign - relax * 1.5 || impact > maxImpact * 1.3) quality = 'crash';
+    else if (align < L.cleanAlign - relax || impact > maxImpact) quality = 'sketchy';
     this.events.push({ type: 'landed', quality, airTime, impact });
 
     if (quality === 'crash') {

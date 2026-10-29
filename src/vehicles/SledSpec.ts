@@ -1,5 +1,6 @@
 import sledData from '../data/sleds.json';
 import partsData from '../data/parts.json';
+import skillsData from '../data/skills.json';
 
 /** Raw sled spec as authored in data/sleds.json. */
 export interface SledSpec {
@@ -85,6 +86,18 @@ export interface SledSetup {
   parts?: string[];
   livery?: Livery;
   tuning?: Tuning;
+  /** Rider skill levels (skills.json ids); AI riders have none. */
+  skills?: Record<string, number>;
+}
+
+/** Sum of a skill tree's per-level effects for the given levels. */
+export function skillEffects(levels: Record<string, number> = {}): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const sk of skillsData.skills) {
+    const n = levels[sk.id] ?? 0;
+    for (const [k, v] of Object.entries(sk.perLevel)) out[k] = (out[k] ?? 0) + v * n;
+  }
+  return out;
 }
 
 /** Physics values derived from a setup – the single place where specs + parts turn into simulation numbers. */
@@ -132,6 +145,11 @@ export interface SledParams {
   dragArea: number;
   springZetaFront: number;
   springZetaRear: number;
+  /** Rider skills: air rotation multiplier, landing tolerance (impact ×, align relax), speed kept on a crash. */
+  airSkill: number;
+  landingImpactMult: number;
+  landingAlignRelax: number;
+  crashKeepAdd: number;
 }
 
 const REF_FLOAT_AREA_PER_KG = 0.0023;
@@ -157,10 +175,13 @@ export function combinedEffects(partIds: string[] = []): Required<PartEffects> {
 export function deriveParams(setup: SledSetup): SledParams {
   const s = setup.spec;
   const e = combinedEffects(setup.parts);
+  const k = skillEffects(setup.skills);
+  const sk = (id: string) => k[id] ?? 0;
   const t = { ...DEFAULT_TUNING, ...setup.tuning };
   const gear = t.gearing / 100;
   const dryMass = s.dryWeightKg + e.weightKg;
-  const mass = dryMass + setup.riderMass + setup.cargoMass;
+  // hauling skill: a practised rider carries cargo as if it were lighter
+  const mass = dryMass + setup.riderMass + setup.cargoMass * Math.max(0.4, 1 + sk('cargoPenaltyPct') / 100);
   const trackLengthIn = s.trackLengthIn + e.trackLengthIn;
   const lugHeightIn = e.lugHeightSet || s.lugHeightIn;
   const trackContactLen = (trackLengthIn * 0.0254) / 2.75;
@@ -184,8 +205,8 @@ export function deriveParams(setup: SledSetup): SledParams {
     skiArea: s.skiWidth * 0.9,
     trackArea: (trackContactLen * trackWidth) / 4,
     engineBrakeG: s.engineType === '4-stroke' ? 0.09 : 0.045,
-    flotation: area / mass / REF_FLOAT_AREA_PER_KG,
-    powderTraction: 1 + (lugHeightIn - 1.25) * 0.55,
+    flotation: (area / mass / REF_FLOAT_AREA_PER_KG) * (1 + sk('flotationPct') / 100),
+    powderTraction: (1 + (lugHeightIn - 1.25) * 0.55) * (1 + sk('powderTractionPct') / 100),
     hardpackDrag: Math.max(0, lugHeightIn - 1.0) * 0.006 + Math.max(0, trackLengthIn - 137) * 0.0002,
     travelFront: s.suspensionTravelFront + e.travelFront,
     travelRear: s.suspensionTravelRear + e.travelRear,
@@ -195,20 +216,24 @@ export function deriveParams(setup: SledSetup): SledParams {
     dampMult: s.damping * (1 + e.dampingPct / 100) * (1 + t.compression / 100),
     reboundAdj: 1 + t.rebound / 100,
     canTow: e.towing > 0,
-    hitchYawBonus: e.hitchYawBonus,
+    hitchYawBonus: e.hitchYawBonus + sk('trailerSteady'),
     stance: s.skiStance,
     // shorter tracks turn quicker
-    steerMax: 0.42 + s.handling * 0.12 + (137 - trackLengthIn) * 0.0012,
+    steerMax: (0.42 + s.handling * 0.12 + (137 - trackLengthIn) * 0.0012) * (1 + sk('steerPct') / 100),
     handling: s.handling,
-    hardGrip: s.hardGrip,
+    hardGrip: s.hardGrip * (1 + sk('hardGripPct') / 100),
     studGrip: e.studGrip,
-    skiBite: 1 + e.skiBitePct / 100,
+    skiBite: (1 + e.skiBitePct / 100) * (1 + sk('skiBitePct') / 100),
     tractiveMult: (1 + e.tractivePct / 100) * (1 + gear * 0.6),
-    roughAbsorb: Math.min(0.8, e.roughAbsorb),
+    roughAbsorb: Math.min(0.92, e.roughAbsorb + sk('roughAbsorb')),
     durability: Math.min(1, Math.max(0.3, s.durability + e.durabilityAdd)),
     dragArea: s.dragArea,
     springZetaFront: 0.32,
     springZetaRear: 0.38,
+    airSkill: 1 + sk('airPct') / 100,
+    landingImpactMult: 1 + sk('impactPct') / 100,
+    landingAlignRelax: sk('alignRelax'),
+    crashKeepAdd: sk('crashKeep'),
   };
 }
 

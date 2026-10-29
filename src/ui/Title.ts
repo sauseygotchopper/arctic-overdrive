@@ -7,7 +7,7 @@ import type { Game } from '../core/Game';
 export class Title {
   private shown = true;
 
-  constructor(private root: HTMLElement, game: Game) {
+  constructor(private root: HTMLElement, private game: Game) {
     root.querySelector('.ld-play')!.addEventListener('click', () => this.hide());
     root.querySelector('.ld-settings')!.addEventListener('click', () => game.openSettings(() => {}));
     window.addEventListener('keydown', (e) => {
@@ -29,6 +29,8 @@ export class Title {
   hide() {
     if (!this.shown) return;
     this.shown = false;
+    // first launch goes straight into the tutorial
+    if (!this.game.save.data.tutorialDone) this.game.startMode('tutorial');
     this.root.classList.add('done');
     setTimeout(() => this.root.remove(), 700);
   }
