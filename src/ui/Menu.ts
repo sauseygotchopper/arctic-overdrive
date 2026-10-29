@@ -7,6 +7,7 @@ import { DELIVERY_JOBS, jobPoint } from '../modes/Delivery';
 import { SNOCROSS_EVENTS } from '../modes/Snocross';
 import { SPECIAL_CONTRACTS } from '../modes/SpecialDelivery';
 import specialData from '../data/special.json';
+import { SCAUCE, SCAUCE_PORTRAIT } from './Scauce';
 import { getSled, getPart } from '../vehicles/SledSpec';
 import cargoData from '../data/cargo.json';
 
@@ -31,6 +32,13 @@ export class Menu {
     game.container.append(this.el, this.pauseEl);
     window.addEventListener('keydown', (e) => {
       if (!this.el.classList.contains('show')) return;
+      const dialog = this.el.querySelector('.scauce-dialog');
+      if (dialog) {
+        if (e.code === 'Escape') dialog.remove();
+        if (e.code === 'Enter') (dialog.querySelector('.go') as HTMLButtonElement).click();
+        e.stopPropagation();
+        return;
+      }
       if (e.code === 'Escape' && this.view !== 'modes') { this.view = 'modes'; this.render(); }
     });
   }
@@ -213,17 +221,47 @@ export class Menu {
         <button class="course ${locked ? 'locked' : ''}" data-contract="${c.id}" ${locked ? 'disabled' : ''}>
           <div class="course-head"><div class="course-name">${c.name}</div><span class="pay">$${fmt(c.pay)}+</span></div>
           <div class="course-desc">${a.name} → ${b.name} · ${km.toFixed(1)} km · ${timeName[c.time] ?? c.time}</div>
-          <div class="course-desc">${c.brief}</div>
+          <div class="course-desc scauce-quote">“${c.brief}”</div>
           <div class="chips"><span>Wanted up to ${stars(c.maxStars)}</span><span>Starts at ${'★'.repeat(c.startStars)}</span>${c.maxStars >= specialData.helicopterAt ? '<span class="frag">Helicopter</span>' : ''}<span>+${Math.round(specialData.wantedBonus * 100)}% per star reached</span></div>
           <div class="course-times">${locked ? `<span class="lockmsg">Needs a tier ${c.tier}+ sled</span>` : ''}
             <span class="pb">${rec ? `Delivered ${rec.done}× · busted ${rec.busts}×${rec.bestPay ? ` · best $${fmt(rec.bestPay)}` : ''}` : 'Not attempted'}</span></div>
         </button>`;
     }).join('');
-    const how = `<div class="course-desc special-how">Agents chase you while they can see you, and the wanted level climbs. Break line of sight – over a ridge, into the trees, or just out of range – long enough and they lose you. Trees hide you from the helicopter's searchlight. Stop with an agent alongside and you're busted. You can only make the drop with nobody on your tail.</div>`;
-    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Special Delivery</div>${how}<div class="courses">${rows}</div></div>`;
+    const how = `<div class="special-how">Agents chase you while they can see you, and the wanted level climbs. Break line of sight – over a ridge, into the trees, or just out of range – long enough and they lose you. Trees hide you from the helicopter's searchlight. Stop with an agent alongside and you're busted. You can only make the drop with nobody on your tail.</div>`;
+    const contact = `<div class="scauce-card">${SCAUCE_PORTRAIT}<div><div class="scauce-name">${SCAUCE.name}</div><div class="scauce-line">“${SCAUCE.intro}”</div>${how}</div></div>`;
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Special Delivery</div>${contact}<div class="courses">${rows}</div></div>`;
     this.bindSide();
     this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
-    this.el.querySelectorAll<HTMLButtonElement>('[data-contract]').forEach((b) => b.addEventListener('click', () => g.startMode('special', b.dataset.contract)));
+    this.el.querySelectorAll<HTMLButtonElement>('[data-contract]').forEach((b) => b.addEventListener('click', () => this.acceptContract(b.dataset.contract!)));
+  }
+
+  /** Scauce hands over the job: his pitch, then "Git up mush!" when you take it. */
+  private acceptContract(id: string) {
+    const c = SPECIAL_CONTRACTS.find((x) => x.id === id)!;
+    this.el.querySelector('.scauce-dialog')?.remove();
+    const d = document.createElement('div');
+    d.className = 'scauce-dialog';
+    d.innerHTML = `
+      <div class="scauce-box">
+        ${SCAUCE_PORTRAIT}
+        <div class="scauce-talk">
+          <div class="scauce-name">${SCAUCE.name} <span>· ${c.name}</span></div>
+          <div class="scauce-bubble">“${c.brief}”</div>
+          <div class="scauce-actions"><button class="go">${SCAUCE.acceptButton} <kbd>Enter</kbd></button><button class="no">${SCAUCE.declineButton} <kbd>Esc</kbd></button></div>
+        </div>
+      </div>`;
+    this.el.appendChild(d);
+    d.querySelector('.no')!.addEventListener('click', () => d.remove());
+    d.addEventListener('click', (e) => { if (e.target === d) d.remove(); });
+    const go = d.querySelector('.go') as HTMLButtonElement;
+    go.addEventListener('click', () => {
+      if (go.disabled) return;
+      go.disabled = true;
+      d.querySelector('.scauce-bubble')!.innerHTML = `<b class="scauce-shout">${SCAUCE.accept}</b>`;
+      d.querySelector('.scauce-actions')!.remove();
+      setTimeout(() => { d.remove(); this.game.startMode('special', id); }, 1100);
+    });
+    go.focus();
   }
 
   private bindSide() {

@@ -10,6 +10,7 @@ import { fmtTime } from './TimeTrial';
 import type { TimeOfDay } from '../world/Sky';
 import type { CargoType } from '../vehicles/Cargo';
 import specialData from '../data/special.json';
+import { SCAUCE } from '../ui/Scauce';
 
 export type SpecialContract = (typeof specialData.contracts)[number];
 export const SPECIAL_CONTRACTS = specialData.contracts as SpecialContract[];
@@ -25,6 +26,9 @@ interface Agent {
   closest: number;
   noProgress: number;
 }
+
+/** A random line from Scauce for the results card. */
+const scauceQuote = (lines: string[]) => `<div class="r-quote">${SCAUCE.name}: “${lines[Math.floor(Math.random() * lines.length)]}”</div>`;
 
 /** One helicopter per game: its SpotLight stays in the scene so entering the mode again doesn't rebuild shaders. */
 const helicopters = new WeakMap<Game, Helicopter>();
@@ -475,7 +479,7 @@ export class SpecialDelivery implements GameMode {
       title: `${this.c.name} · ${this.dest.name}`,
       time: fmtTime(this.time),
       medal: stars >= this.c.maxStars ? 'gold' : stars >= this.c.maxStars - 1 ? 'silver' : 'bronze',
-      subtitle: `Package delivered · ${'★'.repeat(stars)} wanted`,
+      subtitle: `Package delivered · ${'★'.repeat(stars)} wanted${scauceQuote(stars >= 4 ? SCAUCE.deliveredHot : SCAUCE.delivered)}`,
       medalTimes: [['Highest wanted level', `${stars} of ${this.c.maxStars}`]],
       leaderboardTitle: 'This contract',
       leaderboard: [{ text: `Done ${rec.done}× · best $${rec.bestPay.toLocaleString('en-US')}`, highlight: rec.bestPay === currency }],
@@ -506,7 +510,7 @@ export class SpecialDelivery implements GameMode {
       title: `${this.c.name} · Busted`,
       time: fmtTime(this.time),
       medal: null,
-      subtitle: 'Boxed in and stopped. Package confiscated.',
+      subtitle: `Boxed in and stopped. Package confiscated.${scauceQuote(SCAUCE.busted)}`,
       medalTimes: [['Highest wanted level', `${this.maxStarsReached} of ${this.c.maxStars}`]],
       leaderboardTitle: 'This contract',
       leaderboard: [{ text: `Done ${rec.done}× · busted ${rec.busts}×`, highlight: false }],

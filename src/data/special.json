@@ -1,5 +1,5 @@
 {
-  "_doc": "Special Delivery: carry an unmarked package while agents chase you. Wanted level (stars) rises while you are seen; at each star more agents join (levels[star-1]) and from helicopterAt stars a helicopter sweeps a searchlight. Stay unseen for evadeSeconds (+evadePerStar per star) to lose them, then they search the last place they saw you for searchSeconds. You can only make the drop when nobody is chasing you. For alertSeconds at the start (and part of it when reinforcements arrive) the agents know where you are. Stopped (under bustSpeed m/s) with an agent within bustRadius m fills the bust meter; full = busted. Pay = pay + pay × wantedBonus × highest star reached.",
+  "_doc": "Special Delivery: Scauce (contact) gives the contracts; brief is his pitch, his other lines play on accept, delivery and bust. Carry an unmarked package while agents chase you. Wanted level (stars) rises while you are seen; at each star more agents join (levels[star-1]) and from helicopterAt stars a helicopter sweeps a searchlight. Stay unseen for evadeSeconds (+evadePerStar per star) to lose them, then they search the last place they saw you for searchSeconds. You can only make the drop when nobody is chasing you. For alertSeconds at the start (and part of it when reinforcements arrive) the agents know where you are. Stopped (under bustSpeed m/s) with an agent within bustRadius m fills the bust meter; full = busted. Pay = pay + pay × wantedBonus × highest star reached.",
   "sightRange": 115,
   "losCheckSeconds": 0.25,
   "forestBlocksAt": 3,
@@ -32,14 +32,24 @@
     { "agents": 3, "sled": "kestrel-sxr-600", "parts": ["intake-2", "exhaust-2", "ecu-2", "turbo-1", "clutch-pro", "studs-144", "shocks-pro", "skis-pro"] },
     { "agents": 4, "sled": "overdrive-turbo-build", "parts": ["intake-2", "exhaust-2", "ecu-2", "turbo-2", "clutch-pro", "studs-144", "shocks-pro", "skis-pro"] }
   ],
+  "contact": {
+    "name": "Scauce",
+    "intro": "Alright la. Scauce. I've got parcels need shiftin' round the valley an' the bizzies are all over it. You get it there, I see ya right. Simple.",
+    "accept": "Git up mush!",
+    "acceptButton": "Sound, let's go",
+    "declineButton": "Nah, not today",
+    "delivered": ["Boss that, lad! Made up wit ya.", "Sound as a pound. Here's ya cut.", "Dead easy that, wasn't it? Told ya."],
+    "deliveredHot": ["Ya mad 'ead! Whole task force on ya an' ya still made it. Boss.", "That's proper scally that, lad. Get in!"],
+    "busted": ["Ya muppet! Ya got pinched. Don't say me name.", "Ah lad, ya bottled it. Never stop when the bizzies are on ya!", "Ya've lost me gear. Gutted, la."]
+  },
   "contracts": [
     { "id": "unmarked-crate", "name": "Unmarked Crate", "tier": 1, "from": "south-camp", "to": "pine-hollow", "startStars": 1, "maxStars": 2, "time": "overcast", "pay": 4500,
-      "brief": "No questions, no paperwork. Two agents at most – lose them in the trees." },
+      "brief": "Easy one to start, lad. Box from South Camp to Pine Hollow. Couple of bizzies might sniff about \u2013 lose 'em in the trees, dead easy." },
     { "id": "night-courier", "name": "Night Courier", "tier": 2, "from": "old-mill", "to": "lakeside", "startStars": 1, "maxStars": 3, "time": "night", "pay": 7500,
-      "brief": "Across the valley after dark. Stay long enough and the helicopter comes up." },
+      "brief": "Old Mill to Lakeside, after dark like. Hang about too long an' they'll get the helicopter up, so don't be messin'." },
     { "id": "hot-cargo", "name": "Hot Cargo", "tier": 3, "from": "pine-hollow", "to": "ridge-hut", "startStars": 2, "maxStars": 4, "time": "golden", "pay": 11000,
-      "brief": "They already know what you're carrying. Up to the ridge with company." },
+      "brief": "Some grass has told 'em what's in this one, la. They'll be on ya from the off. Up to the Ridge Hut an' don't stop for nothin'." },
     { "id": "the-big-one", "name": "The Big One", "tier": 4, "from": "ridge-hut", "to": "old-mill", "startStars": 2, "maxStars": 5, "time": "night", "pay": 18000,
-      "brief": "Coast to coast with the whole task force behind you. The biggest payday in Frostpine." }
+      "brief": "This is the big one, mush. Ridge to the Old Mill wit' the whole task force on ya arse. Pull this off an' ya minted." }
   ]
 }
