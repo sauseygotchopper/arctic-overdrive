@@ -261,7 +261,13 @@ button { font: inherit; color: inherit; }
   border: 1px solid rgba(156,195,230,.22); background: linear-gradient(160deg, rgba(29,51,80,.85), rgba(11,22,38,.9));
   transition: transform .18s cubic-bezier(.2,1.4,.4,1), border-color .18s, box-shadow .18s; display: flex; flex-direction: column; gap: 6px; }
 .card:hover, .course:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 30px rgba(0,0,0,.35); }
-.card:active, .course:active { transform: translateY(-1px) scale(.99); }
+.card:active, .course:active { filter: brightness(.92); }
+/* Hover/press only move the drawn card, never where it can be clicked: the lift leaves a strip under the
+   card that the ::after pad keeps covered, and press feedback is a darken instead of a transform (a press
+   that moved the box let mousedown and mouseup land on different elements, so the click never fired). */
+.card, .course, .side-btns button { position: relative; }
+.card::after, .course::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 6px; }
+.side-btns button::before { content: ''; position: absolute; top: 0; bottom: 0; right: 100%; width: 6px; }
 .card.locked { cursor: default; opacity: .5; }
 .card.locked:hover { transform: none; border-color: rgba(156,195,230,.22); box-shadow: none; }
 .card-name { font-family: var(--font-display); font-size: 28px; font-weight: 800; font-style: italic; text-transform: uppercase; }
@@ -321,6 +327,9 @@ button { font: inherit; color: inherit; }
   transition: opacity .35s; }
 .garage.show { opacity: 1; pointer-events: none; }
 .garage.show > * { pointer-events: auto; }
+/* a hidden overlay must never take clicks, whatever its children ask for (the garage's side panels used to
+   stay clickable while invisible and swallowed clicks on the menu after the first garage visit) */
+.garage:not(.show) *, .menu:not(.show) *, .pause:not(.show) *, .settings:not(.show) *, .hud-results:not(.show) * { pointer-events: none !important; }
 .g-top { display: flex; align-items: center; gap: 16px; padding: 16px 22px; background: linear-gradient(180deg, rgba(6,14,26,.85), transparent); }
 .g-back { font-size: 18px; font-weight: 700; padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(156,195,230,.3); background: rgba(255,255,255,.06); }
 .g-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(11,22,38,.6); }
@@ -331,7 +340,7 @@ button { font: inherit; color: inherit; }
 .g-wallet b { font-size: 26px; }
 .g-wallet span { opacity: .7; letter-spacing: .06em; }
 .g-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 330px 1fr 320px; gap: 16px; padding: 0 22px 22px; pointer-events: none !important; }
-.g-body > * { pointer-events: auto; }
+.garage.show .g-body > * { pointer-events: auto; }
 .g-center { pointer-events: none !important; display: flex; align-items: flex-end; justify-content: center; }
 .g-title { text-align: center; font-size: 30px; text-transform: uppercase; letter-spacing: .04em; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
 .g-title b { font-weight: 800; font-style: italic; }
@@ -545,7 +554,8 @@ button { font: inherit; color: inherit; }
 .cards > :nth-child(5), .courses > :nth-child(5), .skills > :nth-child(5) { animation-delay: .16s; }
 .cards > :nth-child(n+6), .courses > :nth-child(n+6), .skills > :nth-child(n+6) { animation-delay: .2s; }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
-.card:active:not(:disabled), .course:active:not(:disabled), .side-btns button:active { transform: translateY(1px) scale(.985); }
+.side-btns button:active { filter: brightness(.9); }
+.menu.no-anim .menu-main, .menu.no-anim .cards > *, .menu.no-anim .courses > *, .menu.no-anim .skills > * { animation: none; }
 .hud-results.show .r-card { animation: results-in .4s cubic-bezier(.2,1.2,.4,1); }
 @keyframes results-in { from { opacity: 0; transform: translateY(18px) scale(.96); } }
 .r-row.total b { font-weight: inherit; font-variant-numeric: tabular-nums; }
