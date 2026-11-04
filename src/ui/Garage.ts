@@ -219,7 +219,7 @@ export class Garage {
     const g = this.prog.garage(this.sledId);
     const owned = item.price === 0 || g.cosmetics.includes(`${pv.cosmeticKind}:${pv.id}`);
     if (g.livery[pv.cosmeticKind] === pv.id) return '<button class="g-act" disabled>Applied</button>';
-    if (item.minTier && getSled(this.sledId).tier < item.minTier) return '<button class="g-act" disabled>Turbo Build only</button>';
+    if (item.minTier && getSled(this.sledId).tier < item.minTier) return `<button class="g-act" disabled>Needs a tier ${item.minTier}+ sled</button>`;
     return `<button class="g-act primary" data-act="buyCosmetic" ${owned || sd.currency >= item.price ? '' : 'disabled'}>${owned ? 'Apply' : `Buy & apply · $${fmt(item.price)}`}</button>`;
   }
 
@@ -286,7 +286,7 @@ export class Garage {
       const sel = this.preview?.kind === 'cosmetic' && this.preview.cosmeticKind === kind && this.preview.id === x.id ? 'sel' : '';
       return `<button class="item cos ${on ? 'fitted' : ''} ${locked ? 'locked' : ''} ${sel}" data-cos="${kind}" data-id="${x.id}">
         <span class="chip" style="background:${kind === 'wrap' ? 'repeating-linear-gradient(45deg,#ffffff22 0 6px,transparent 6px 12px),' : ''}linear-gradient(135deg, ${chip} 55%, ${x.accent ?? spec.colors.accent} 55%)"></span>
-        <span class="nm">${esc(x.name)}</span><span class="st">${on ? '✓' : owned ? '' : locked ? 'T5' : `$${fmt(x.price)}`}</span></button>`;
+        <span class="nm">${esc(x.name)}</span><span class="st">${on ? '✓' : owned ? '' : locked ? `T${x.minTier}` : `$${fmt(x.price)}`}</span></button>`;
     }).join('');
     return `<div class="cat">Paint</div>${sw('paint', COSMETICS.paints)}
       <div class="cat">Wrap</div>${sw('wrap', COSMETICS.wraps)}

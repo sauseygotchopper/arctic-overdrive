@@ -96,6 +96,17 @@
       }
     },
     {
+      "id": "intake-3",
+      "slot": "intake",
+      "name": "Plasma Ram Plenum",
+      "desc": "Twin ducted plenums feeding the hyper-turbos. +22% power. Ultimate Cheat Sled only.",
+      "price": 9500,
+      "tier": 6,
+      "effects": {
+        "powerPct": 22
+      }
+    },
+    {
       "id": "exhaust-1",
       "slot": "exhaust",
       "name": "Sport Silencer",
@@ -118,6 +129,19 @@
         "powerPct": 10,
         "peakRpmAdd": 150,
         "maxRpmAdd": 150
+      }
+    },
+    {
+      "id": "exhaust-3",
+      "slot": "exhaust",
+      "name": "Titanium Resonance Headers",
+      "desc": "Equal-length titanium headers that scream to the limiter. +28% power. Ultimate Cheat Sled only.",
+      "price": 11000,
+      "tier": 6,
+      "effects": {
+        "powerPct": 28,
+        "peakRpmAdd": 250,
+        "maxRpmAdd": 250
       }
     },
     {
@@ -145,6 +169,19 @@
       }
     },
     {
+      "id": "ecu-3",
+      "slot": "ecu",
+      "name": "Neural Cheat Map",
+      "desc": "Self-learning timing that finds power the engineers swore wasn't there. +30% power. Ultimate Cheat Sled only.",
+      "price": 13500,
+      "tier": 6,
+      "effects": {
+        "powerPct": 30,
+        "maxRpmAdd": 300,
+        "durabilityAdd": -0.03
+      }
+    },
+    {
       "id": "turbo-1",
       "slot": "turbo",
       "name": "Boost Kit 7 psi",
@@ -161,7 +198,7 @@
       "id": "turbo-2",
       "slot": "turbo",
       "name": "Boost Kit 11 psi",
-      "desc": "Full boost with upgraded internals. Turbo Build only.",
+      "desc": "Full boost with upgraded internals. Tier 5+ sleds only.",
       "price": 12500,
       "tier": 5,
       "effects": {
@@ -169,6 +206,20 @@
         "weightKg": 15,
         "topSpeedPct": 10,
         "durabilityAdd": -0.05
+      }
+    },
+    {
+      "id": "turbo-3",
+      "slot": "turbo",
+      "name": "Twin Hyper-Turbo 40 psi",
+      "desc": "Two ball-bearing hyper-turbos and a water-methanol injection loop. +96% power. Ultimate Cheat Sled only.",
+      "price": 28000,
+      "tier": 6,
+      "effects": {
+        "powerPct": 96,
+        "weightKg": 20,
+        "topSpeedPct": 14,
+        "durabilityAdd": -0.06
       }
     },
     {
@@ -205,6 +256,18 @@
       "effects": {
         "tractivePct": 9,
         "topSpeedPct": 4
+      }
+    },
+    {
+      "id": "clutch-cheat",
+      "slot": "clutch",
+      "name": "Gyro Torque Converter",
+      "desc": "Seamless torque-vectoring gearing: launches harder and pulls a taller top end. Ultimate Cheat Sled only.",
+      "price": 9000,
+      "tier": 6,
+      "effects": {
+        "tractivePct": 14,
+        "topSpeedPct": 8
       }
     },
     {

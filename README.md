@@ -73,7 +73,7 @@ open for 2 s so you can chain the next jump, a sketchy landing banks 75%, a cras
 Heavier setups pop lower and rotate slower (air torques are fixed, inertia comes from mass).
 
 ### Sleds, garage & progression
-Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
+Six sleds, one per tier; the first five are each modelled on a real class (`src/data/sleds.json`):
 
 | Tier | Sled | Class | Character |
 |---|---|---|---|
@@ -82,6 +82,18 @@ Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
 | 3 | Altamont Summit 165 | Mountain (165in x 3in lugs) | Floats in powder, narrow and twitchy on ice |
 | 4 | Kestrel SX-R 600 | Snocross race (121in) | Stiff long-travel suspension, best on jumps and tracks |
 | 5 | Overdrive Turbo Build | Custom turbo | Highest ceilings, turbo kits, exclusive liveries |
+| 6 | Overdrive Works Ultimate Cheat Sled | Ultimate / unfair | 350 hp stock, 967 hp with the tier-6 engine parts; rides on rails |
+
+The Ultimate Cheat Sled sets `rails: 1` in `sleds.json`. That one value switches on, in `SledPhysics`
+(all knobs in the `rails` block of `src/data/handling.json`): traction control and a track grip that
+ignores the surface (no wheelspin, no trenching, same bite on ice and powder), sideways grip that
+builds almost instantly and never slides off its peak, a guide that bleeds sideways velocity so the
+sled goes where its nose points, proportional rate-command steering (full lock = a fixed 6.5 g turn
+rate, half lock = half of it), grip forces applied at centre-of-mass height so they can't roll or
+pitch it, a lifted surface speed cap, and self-levelling on the ground and in the air (no wheelies,
+stays flat off jumps; it can still tumble if it hits a tree). Its tier-6 parts (Plasma Ram Plenum, Titanium Resonance Headers,
+Neural Cheat Map, Twin Hyper-Turbo) add +22 / +28 / +30 / +96 % power: 261 kW (350 hp) becomes 967 hp.
+Unlocks at 25,000 XP, 3 gold medals, 20 crystals, 10 deliveries and 5 snocross wins, $85,000.
 
 A sled is bought with cash once its progress gates are met (own the tier below, XP, medals,
 crystals). Parts (`src/data/parts.json`) change real physics values through one function,

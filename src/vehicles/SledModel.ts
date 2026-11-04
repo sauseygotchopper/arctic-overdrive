@@ -371,7 +371,7 @@ export class SledModel implements SledVisual {
     this.root.add(this.trackGroup);
 
     // ---------- class details ----------
-    if (spec.style === 'race' || spec.style === 'turbo' || livery.number !== DEFAULT_LIVERY.number) {
+    if (spec.style === 'race' || spec.style === 'turbo' || spec.style === 'cheat' || livery.number !== DEFAULT_LIVERY.number) {
       const plate = new THREE.MeshStandardMaterial({ map: makeNumberTexture(livery.number, accentColor), roughness: 0.6 });
       for (const s of [-1, 1]) {
         const p = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.22), plate);
@@ -390,6 +390,48 @@ export class SledModel implements SledVisual {
       glow.position.set(-0.3, 0.1, 0.5);
       this.root.add(glow);
       this.root.add(tube([[-0.3, 0.1, 0.44], [-0.36, 0.02, 0.3], [-0.38, -0.12, 0.26]], 0.03, darkMetal, 10));
+    }
+
+    if (spec.style === 'cheat') {
+      // glowing trim in the accent colour (also what tells you it's on rails in the dark)
+      const neon = new THREE.MeshStandardMaterial({ color: 0x06222a, emissive: accentColor, emissiveIntensity: 2.4, roughness: 0.4 });
+      // twin turbo snails either side of the hood, each with a glowing core
+      for (const s of [-1, 1]) {
+        const snail = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), metal);
+        snail.position.set(s * 0.36, 0.2, 0.62);
+        const core = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.14, 12), neon);
+        core.rotation.z = Math.PI / 2;
+        core.position.set(s * 0.45, 0.2, 0.62);
+        this.root.add(snail, core);
+      }
+      // rear wing on twin struts: the visible half of "glued to the snow"
+      const wingZ = tunnelRear + 0.3;
+      for (const s of [-1, 1]) {
+        const strutBar = box(0.03, 0.5, 0.05, metal);
+        strutBar.position.set(s * 0.2, 0.4, wingZ);
+        const plate = box(0.025, 0.16, 0.36, accent);
+        plate.position.set(s * 0.46, 0.7, wingZ - 0.02);
+        const lamp = box(0.02, 0.02, 0.3, neon);
+        lamp.position.set(s * 0.475, 0.78, wingZ - 0.02);
+        this.root.add(strutBar, plate, lamp);
+      }
+      const wing = box(0.96, 0.03, 0.34, paint);
+      wing.position.set(0, 0.68, wingZ);
+      wing.rotation.x = -0.1;
+      const wingEdge = box(0.9, 0.02, 0.02, neon);
+      wingEdge.position.set(0, 0.665, wingZ - 0.17);
+      this.root.add(wing, wingEdge);
+      // light strips along the tunnel and on top of each ski
+      for (const s of [-1, 1]) {
+        const strip = box(0.012, 0.03, (0.55 - tunnelRear) * 0.9, neon);
+        strip.position.set(s * 0.262, 0.0, tunnelRear + (0.55 - tunnelRear) / 2);
+        this.root.add(strip);
+      }
+      for (const pivot of [this.skiPivotL, this.skiPivotR]) {
+        const rail = box(0.014, 0.012, 0.9, neon);
+        rail.position.set(0, 0.052, 0.08);
+        pivot.add(rail);
+      }
     }
 
     // ---------- rear rack (shown when carrying cargo) ----------
@@ -699,7 +741,7 @@ function makeSideTexture(spec: SledSpec, d: Design, body: string, accent: string
   const brand = spec.brand.replace(/ Racing| Customs/, '').toUpperCase();
   const tagCol = d.sideArt === 'carbon' || d.sideArt === 'race' ? '#f2f4f7' : d.sideArt === 'swoosh' ? accent : body;
   if (d.sideArt === 'carbon') {
-    text('TURBO', 0.78, 0.15, 92, '#f2f4f7');
+    text(spec.style === 'cheat' ? 'CHEAT' : 'TURBO', 0.78, 0.15, 92, '#f2f4f7');
     text(brand, 0.78, 0.03, 34, accent);
   } else {
     text(brand, 0.72, 0.16, 70, tagCol);
