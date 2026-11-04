@@ -4,7 +4,7 @@ import { TerrainData } from './TerrainData';
 import { mulberry32, smoothstep } from './Noise';
 
 export type StaticCollider =
-  | { kind: 'cylinder'; x: number; y: number; z: number; r: number; halfH: number }
+  | { kind: 'cylinder'; x: number; y: number; z: number; r: number; halfH: number; tree?: boolean }
   | { kind: 'ball'; x: number; y: number; z: number; r: number }
   | { kind: 'box'; x: number; y: number; z: number; hx: number; hy: number; hz: number; rotY: number };
 
@@ -217,7 +217,7 @@ export class Scenery {
         const tint = 0.85 + rand() * 0.25;
         items.push({ m: m.clone(), c: new THREE.Color(tint, tint, tint), x: px, z: pz });
         this.treePositions.push(px, pz);
-        this.colliders.push({ kind: 'cylinder', x: px, y: h + 2, z: pz, r: 0.35 * sc + 0.1, halfH: 2.5 });
+        this.colliders.push({ kind: 'cylinder', x: px, y: h + 2, z: pz, r: 0.35 * sc + 0.1, halfH: 2.5, tree: true });
       }
     }
     this.treeCount = items.length;

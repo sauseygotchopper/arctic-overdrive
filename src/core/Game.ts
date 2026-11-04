@@ -163,6 +163,7 @@ export class Game {
     });
     this.scene.add(this.scenery.group);
     this.physics.addStatic(this.scenery.colliders);
+    this.physics.setTrunkFriction(HANDLING[handlingMode()].treeAssist ? 0 : 0.4);
     this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
     this.scene.add(this.jumps.group);
     for (const c of this.jumps.colliders) this.physics.addTrimesh(c.vertices, c.indices);
@@ -275,6 +276,7 @@ export class Game {
     const setup = this.progression.setupFor(this.save.data.currentSled);
     this.playerSetupKey = JSON.stringify(setup);
     this.player = new Sled(this.physics, this.terrain, setup, new THREE.Vector3(sp.x, this.terrain.heightAt(sp.x, sp.z) + 0.9, sp.z), yaw);
+    this.player.trees = this.scenery.trees;
     this.scene.add(this.player.visual.root);
   }
 
@@ -412,6 +414,7 @@ export class Game {
   setHandling(m: HandlingMode) {
     setHandlingMode(m);
     this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
+    this.physics.setTrunkFriction(HANDLING[handlingMode()].treeAssist ? 0 : 0.4);
     this.player.refreshSetup();
     this.player.trailer?.applyUpgrades();
     this.save.data.settings.handling = handlingMode();

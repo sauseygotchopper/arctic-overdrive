@@ -6,6 +6,9 @@ import { SledPhysics, DriveInput } from './SledPhysics';
 import { SledModel, SledVisual } from './SledModel';
 import { SledSetup, deriveParams } from './SledSpec';
 import { StuntSystem, TrickControls } from './Tricks';
+import type { TreeGrid } from '../world/Scenery';
+import handlingData from '../data/handling.json';
+import { handling } from '../physics/Handling';
 import { Trailer } from './Trailer';
 import { CargoItem, CargoType } from './Cargo';
 import tricksData from '../data/tricks.json';
@@ -16,6 +19,8 @@ export class Sled {
   readonly visual: SledVisual;
   readonly stunts: StuntSystem;
   trailer: Trailer | null = null;
+  /** Tree trunks to dodge (the ridden sled only): see dodgeTrees. */
+  trees: TreeGrid | null = null;
   /** Cargo strapped to the rear rack – part of the sled's own mass. */
   readonly rack: CargoItem[] = [];
   private prevPos = new THREE.Vector3();
@@ -42,6 +47,7 @@ export class Sled {
     const towing = !!this.trailer?.sled;
     this.stunts.towing = towing;
     this.physics.airControlScale = towing ? tricksData.air.towingScale : 1;
+    this.dodgeTrees(dt);
     this.physics.step(dt, input);
     this.stunts.fixedUpdate(dt, tricks ?? { jumpHeld: false, buttons: { trick1: false, trick2: false, trick3: false, trick4: false }, steer: input.steer, leanX: input.leanX, leanZ: input.leanZ });
     this.trailer?.fixedUpdate(dt);
@@ -57,6 +63,47 @@ export class Sled {
   detachTrailer() {
     this.trailer?.detach();
     this.trailer = null;
+  }
+
+  /**
+   * Arcade tree assist (arcade handling only): if a trunk sits in the path the sled will cover in the next moment, nudge the
+   * sled sideways (limited acceleration) so a near-miss skims past instead of stopping dead. Dead-centre
+   * hits still happen if you aim straight at a tree late; glancing ones mostly become close calls.
+   */
+  private dodgeTrees(dt: number) {
+    const A = handlingData.treeAssist;
+    const p = this.physics;
+    if (!this.trees || !handling().treeAssist || p.groundedCount === 0) return;
+    const v = p.velocity;
+    const sp = Math.hypot(v.x, v.z);
+    if (sp < A.minSpeed) return;
+    const dx = v.x / sp, dz = v.z / sp;
+    const sx = -dz, sz = dx; // right of travel (yaw = atan2(x, z) grows to the left)
+    const look = Math.min(A.maxLook, sp * A.lookSeconds);
+    const px = p.position.x, pz = p.position.z;
+    let along = Infinity, lat = 0;
+    this.trees.forEachNear(px + dx * look * 0.5, pz + dz * look * 0.5, look * 0.5 + A.clearance, (tx, tz) => {
+      const rx = tx - px, rz = tz - pz;
+      const a = rx * dx + rz * dz;
+      if (a < 0.4 || a > look || a > along) return;
+      const l = rx * sx + rz * sz;
+      if (Math.abs(l) >= A.clearance) return;
+      along = a;
+      lat = l;
+    });
+    if (along === Infinity) return;
+    // go the side we're already drifting or steering to when it's dead ahead, else away from the trunk
+    const latVel = v.x * sx + v.z * sz;
+    const side = Math.abs(lat) > 0.12 ? -Math.sign(lat) : Math.sign(latVel) || 1;
+    const need = A.clearance - (side === -Math.sign(lat) ? Math.abs(lat) : -Math.abs(lat));
+    const want = need / Math.max(along / sp, 0.12); // sideways speed that clears it in time
+    const deficit = want - latVel * side;
+    if (deficit <= 0) return;
+    const dv = Math.min(deficit, A.maxAccel * dt);
+    const m = p.body.mass();
+    p.body.applyImpulse({ x: sx * side * dv * m, y: 0, z: sz * side * dv * m }, true);
+    // and turn the nose a touch the same way so it reads as a swerve, not a slide
+    p.body.applyTorqueImpulse({ x: 0, y: -side * dv * m * A.yawPerDv, z: 0 }, true); // +y yaws left
   }
 
   /** Re-apply derived params after setup changes (cargo, parts...). */

@@ -21,16 +21,18 @@ export interface HandlingModel {
   cvtDrivetrain: boolean;
   /** Wind crust gives way when contact pressure beats its strength. */
   crustBreak: boolean;
+  /** Swerve the ridden sled past trunks just ahead, and give trunks slick bark (handling.json treeAssist). */
+  treeAssist: boolean;
 }
 
 export const HANDLING: Record<HandlingMode, HandlingModel> = {
   realistic: {
     label: 'Realistic', gravityScale: 1,
-    gripLimitedTurns: true, snowKeel: true, fullLeverArm: true, bogging: true, cvtDrivetrain: true, crustBreak: true,
+    gripLimitedTurns: true, snowKeel: true, fullLeverArm: true, bogging: true, cvtDrivetrain: true, crustBreak: true, treeAssist: false,
   },
   arcade: {
     label: 'Arcade', gravityScale: 1.15,
-    gripLimitedTurns: false, snowKeel: false, fullLeverArm: false, bogging: false, cvtDrivetrain: false, crustBreak: false,
+    gripLimitedTurns: false, snowKeel: false, fullLeverArm: false, bogging: false, cvtDrivetrain: false, crustBreak: false, treeAssist: true,
   },
 };
 

@@ -25,6 +25,10 @@
     "rollTargetRad": 0.38,
     "_doc": "Side lean steers the sled by itself in soft snow (leanSteerPowder rad of equivalent steer) and adds ski bite when leaning into a turn; forward lean loads the skis (more steering, more nose-dig in powder), back lean adds track traction and lifts the nose"
   },
+  "treeAssist": {
+    "_doc": "Arcade handling only: tree dodge for the ridden sled (trunks also get frictionless bark): trunks within clearance m of the path covered in the next lookSeconds (max maxLook m) get a sideways nudge of up to maxAccel m/s², plus a little yaw (yawPerDv) so it reads as a swerve.",
+    "minSpeed": 4, "lookSeconds": 0.6, "maxLook": 20, "clearance": 1.2, "maxAccel": 14, "yawPerDv": 0.25
+  },
   "assist": {
     "yawAssist": 3.5,
     "rollStiffness": 12,
