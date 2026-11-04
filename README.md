@@ -22,6 +22,7 @@ npm run build    # typecheck + production build
 | Hitch / unhitch trailer (Freeride) | H | D-pad left |
 | Cycle trailer test load | G | D-pad right |
 | Camera (chase / far / hood) | C | Back |
+| Minimap on / off | M | |
 | Recover (Time Trial: back to last checkpoint) | R | LB |
 | Pause (resume, restart, settings, quit) | Esc / P | Start |
 | Freeride: time of day / weather | T / Y | D-pad up / R3 |

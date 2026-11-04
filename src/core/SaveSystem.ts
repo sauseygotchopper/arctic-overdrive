@@ -20,7 +20,7 @@ export interface SaveData {
   currentSled: string;
   sleds: Record<string, SledSave>;
   settings: {
-    quality: Quality; timeOfDay: string; weather: string; camera: string; dayCycle: boolean; handling: HandlingMode;
+    quality: Quality; timeOfDay: string; weather: string; camera: string; dayCycle: boolean; handling: HandlingMode; minimap: boolean;
     /** 0..1 per bus. */
     volume: { master: number; engine: number; effects: number; ambient: number; ui: number; muted: boolean };
     /** Remapped keyboard bindings (action → key codes); missing actions use the defaults. */
@@ -51,7 +51,7 @@ export const DEFAULT_SAVE: SaveData = {
   currentSled: STARTER_SLED,
   sleds: { [STARTER_SLED]: newSledSave() },
   settings: {
-    quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase', dayCycle: false, handling: 'realistic',
+    quality: 'high', timeOfDay: 'morning', weather: 'clear', camera: 'chase', dayCycle: false, handling: 'realistic', minimap: true,
     volume: { master: 0.8, engine: 0.7, effects: 0.8, ambient: 0.6, ui: 0.6, muted: false }, keys: {},
   },
   skills: {},
