@@ -322,7 +322,17 @@ export class Game {
 
   // ---------- modes / menu ----------
 
+  /** Nothing may be left on top of the screen we're switching to. */
+  private closeOverlays() {
+    if (this.state === 'garage' || this.showroom.active) {
+      this.garage.close();
+      this.showroom.active = false;
+    }
+    if (this.settings.visible) this.settings.show(false);
+  }
+
   startMode(id: string, arg?: string) {
+    this.closeOverlays();
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -346,6 +356,7 @@ export class Game {
   }
 
   toMenu(view?: 'delivery' | 'snocross' | 'courses' | 'special' | 'skills') {
+    this.closeOverlays();
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();

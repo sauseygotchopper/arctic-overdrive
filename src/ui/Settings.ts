@@ -129,18 +129,25 @@ export class SettingsMenu {
   capturing = false;
 
   /** Wait for the next key and bind it to the button's action; a key already in use swaps over. */
+  private cancelCapture: (() => void) | null = null;
+
   private capture(b: HTMLButtonElement) {
-    if (this.capturing) return;
+    this.cancelCapture?.(); // clicking another key while waiting switches to that one
     this.capturing = true;
     b.classList.add('wait');
     b.textContent = 'Press a key…';
     const action = b.dataset.action as Action;
+    const stop = () => {
+      window.removeEventListener('keydown', onKey, true);
+      b.classList.remove('wait');
+      this.cancelCapture = null;
+    };
+    this.cancelCapture = () => { stop(); this.capturing = false; this.refresh(); };
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      window.removeEventListener('keydown', onKey, true);
+      stop();
       setTimeout(() => { this.capturing = false; }, 0);
-      b.classList.remove('wait');
       if (e.code !== 'Escape' && e.code !== 'KeyP') {
         const keys = structuredClone(this.hooks.keys());
         const old = keys[action][0];
@@ -156,6 +163,7 @@ export class SettingsMenu {
   }
 
   show(on: boolean) {
+    if (!on) this.cancelCapture?.();
     this.open = on;
     this.el.classList.toggle('show', on);
     if (on) this.refresh();
