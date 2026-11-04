@@ -30,7 +30,7 @@ const REMAP: [Action, string][] = [
   ['throttle', 'Throttle'], ['brake', 'Brake / reverse'], ['steerLeft', 'Steer left'], ['steerRight', 'Steer right'],
   ['leanLeft', 'Lean left'], ['leanRight', 'Lean right'], ['leanForward', 'Lean forward'], ['leanBack', 'Lean back'],
   ['jump', 'Pop (hold, release)'], ['trick1', 'Trick 1'], ['trick2', 'Trick 2'], ['trick3', 'Trick 3'], ['trick4', 'Trick 4'],
-  ['camera', 'Camera'], ['reset', 'Recover'], ['hitch', 'Hitch trailer'], ['cargo', 'Cycle load'], ['timeOfDay', 'Time of day'],
+  ['camera', 'Camera'], ['minimap', 'Minimap'], ['reset', 'Recover'], ['hitch', 'Hitch trailer'], ['cargo', 'Cycle load'], ['timeOfDay', 'Time of day'],
   ['dayCycle', 'Day/night cycle'], ['weather', 'Weather'], ['photo', 'Photo mode'], ['replay', 'Replay'],
 ];
 

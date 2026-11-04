@@ -10,6 +10,7 @@ export class MiniMap {
   private ctx: CanvasRenderingContext2D;
   private base: HTMLCanvasElement;
   private acc = 0;
+  private shown = true;
 
   constructor(parent: HTMLElement, private terrain: TerrainData, trees: number[], cabins: { x: number; z: number }[]) {
     this.el = document.createElement('canvas');
@@ -60,8 +61,20 @@ export class MiniMap {
     return c;
   }
 
+  get visible() {
+    return this.shown;
+  }
+
+  /** Show or hide the map; a hidden map isn't redrawn. */
+  setVisible(on: boolean) {
+    this.shown = on;
+    this.el.style.display = on ? '' : 'none'; // inline: `#app canvas { display: block }` outranks a class
+    this.acc = 1; // redraw on the next frame
+  }
+
   /** Redraw at ~20 Hz. `overlay` lets the active mode draw route lines, checkpoints, markers. */
   update(dt: number, px: number, pz: number, fx: number, fz: number, overlay?: (ctx: CanvasRenderingContext2D, toMap: (x: number, z: number) => [number, number]) => void) {
+    if (!this.shown) return;
     this.acc += dt;
     if (this.acc < 0.05) return;
     this.acc = 0;

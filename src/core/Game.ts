@@ -237,6 +237,7 @@ export class Game {
     this.input.keys = { ...structuredClone(DEFAULT_KEYS), ...this.save.data.settings.keys } as typeof this.input.keys;
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
+    this.minimap.setVisible(this.save.data.settings.minimap);
     this.loose = new LooseCargo(this.physics, this.scene);
 
     this.progression = new Progression(this.save.data, () => {
@@ -392,6 +393,14 @@ export class Game {
     const cb = this.settingsClose;
     this.settingsClose = null;
     cb?.();
+  }
+
+  private toggleMinimap() {
+    const on = !this.minimap.visible;
+    this.minimap.setVisible(on);
+    this.save.data.settings.minimap = on;
+    this.save.save();
+    this.hud.toast(`Minimap ${on ? 'on' : 'off'}`);
   }
 
   private toggleDayCycle() {
@@ -666,6 +675,7 @@ export class Game {
       this.save.data.settings.camera = this.rig.mode;
       this.save.save();
     }
+    if (input.consumePressed('minimap')) this.toggleMinimap();
     if (input.consumePressed('reset') && !this.hud.resultsOpen && !this.mode?.recover?.()) this.player.recover();
     if (freeride) {
       if (input.consumePressed('timeOfDay')) this.cycleTime();
