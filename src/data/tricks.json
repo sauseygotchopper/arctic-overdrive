@@ -89,7 +89,7 @@
     "crashSpeedKeep": 0.65,
     "crashLockSeconds": 0.9
   },
-  "air": {
+  "air": { "_rates": "Air control targets a rotation rate (rad/s) per axis at full input; pitch/yaw/rollTorque are the torque budget used to get there (so heavier sleds spin up slower). rateResponse = rate error (rad/s) at which full torque is used. Each completed 360 on an axis this jump adds perRotationBonus to that axis' target rate, up to maxRotationBonus. Rates scale by sqrt(refMass / mass) and the Air Control skill.", "maxYawRate": 6.0, "maxPitchRate": 4.8, "maxRollRate": 4.0, "rateResponse": 0.4, "perRotationBonus": 0.1, "maxRotationBonus": 0.3, "refMass": 300, 
     "pitchTorque": 1150,
     "yawTorque": 1400,
     "rollTorque": 380,

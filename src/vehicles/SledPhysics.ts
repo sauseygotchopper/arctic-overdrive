@@ -77,6 +77,8 @@ export class SledPhysics {
   towMass = 0;
   /** Scales air-control torque (towing limits what the rider can do). */
   airControlScale = 1;
+  /** Rotation (rad) about each sled axis since leaving the ground: full turns earn a small spin-rate bonus. */
+  private airRot = { pitch: 0, yaw: 0, roll: 0 };
   /** Seconds left of a crash: no throttle, rider recovering. */
   crashTimer = 0;
   /**
@@ -364,6 +366,7 @@ export class SledPhysics {
         this.landingImpact = Math.max(0, -this.velocity.y);
       }
       this.airTime = 0;
+      this.airRot.pitch = this.airRot.yaw = this.airRot.roll = 0;
     }
     this.groundedCount = grounded;
 
@@ -561,11 +564,26 @@ export class SledPhysics {
       // brake = nose down). Torques are fixed, so heavier setups rotate slower.
       const air = tricksData.air;
       const k = this.airControlScale * this.params.airSkill;
-      const pitchIn = -this.leanZS + (this.throttleS - input.brake) * air.gyroThrottle;
-      const t = new THREE.Vector3()
-        .addScaledVector(this.right, pitchIn * air.pitchTorque * k)
-        .addScaledVector(this.up, -this.steerS * air.yawTorque * k)
-        .addScaledVector(this.forward, this.leanXS * air.rollTorque * k);
+      const pitchIn = clamp(-this.leanZS + (this.throttleS - input.brake) * air.gyroThrottle, -1, 1);
+      const w0 = body.angvel();
+      const W = new THREE.Vector3(w0.x, w0.y, w0.z);
+      const rates = { pitch: W.dot(this.right), yaw: W.dot(this.up), roll: W.dot(this.forward) };
+      this.airRot.pitch += rates.pitch * dt;
+      this.airRot.yaw += rates.yaw * dt;
+      this.airRot.roll += rates.roll * dt;
+      // Inputs ask for a rotation *rate*, not a constant torque (a held torque kept spinning the sled up
+      // for the whole jump). The torque budget is fixed, so heavier setups take longer to get up to
+      // speed and top out a little slower; every full turn already done this jump adds a small bonus.
+      const massScale = clamp(Math.sqrt(air.refMass / p.mass), 0.75, 1.15) * this.params.airSkill;
+      const bonus = (turns: number) => 1 + Math.min(air.maxRotationBonus, air.perRotationBonus * Math.floor(Math.abs(turns) / (Math.PI * 2)));
+      const toward = (axis: THREE.Vector3, target: number, rate: number, torque: number, amount: number) => {
+        if (amount < 0.02) return;
+        t.addScaledVector(axis, clamp((target - rate) / air.rateResponse, -1, 1) * torque * this.airControlScale * amount);
+      };
+      const t = new THREE.Vector3();
+      toward(this.right, pitchIn * air.maxPitchRate * massScale * bonus(this.airRot.pitch), rates.pitch, air.pitchTorque, Math.abs(pitchIn));
+      toward(this.up, -this.steerS * air.maxYawRate * massScale * bonus(this.airRot.yaw), rates.yaw, air.yawTorque, Math.abs(this.steerS));
+      toward(this.forward, this.leanXS * air.maxRollRate * massScale * bonus(this.airRot.roll), rates.roll, air.rollTorque, Math.abs(this.leanXS));
       // a sled flies roughly nose-first: weak pitch alignment with the flight path, faded out
       // while the rider is pitching so flips aren't fought
       const vLen = this.velocity.length();
