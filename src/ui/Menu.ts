@@ -72,6 +72,11 @@ export class Menu {
     return this.el.classList.contains('show');
   }
 
+  /** Redraw the current view after the save changed underneath it. */
+  refresh() {
+    if (this.visible) this.render();
+  }
+
   private lastView = '';
 
   private render() {
@@ -122,7 +127,7 @@ export class Menu {
           : m.id === 'snocross' ? `Up to $${Math.max(...SNOCROSS_EVENTS.map((e) => e.rewards[0])).toLocaleString('en-US')} for a win`
           : m.id === 'special' ? `Up to $${fmt(Math.max(...SPECIAL_CONTRACTS.map((c) => c.pay * (1 + specialData.wantedBonus * c.maxStars))))} per contract` : '';
         const unlock = (m as { unlock?: { deliveries?: number } }).unlock;
-        const needDeliveries = unlock?.deliveries && sd.delivery.completed < unlock.deliveries ? unlock.deliveries : 0;
+        const needDeliveries = unlock?.deliveries && sd.delivery.completed < unlock.deliveries && !g.progression.devUnlock ? unlock.deliveries : 0;
         const open = m.available && !needDeliveries;
         return `
           <button class="card ${open ? '' : 'locked'}" data-mode="${m.id}" ${open ? '' : 'disabled'}>
@@ -177,7 +182,7 @@ export class Menu {
   private renderJobs(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const hitch = g.progression.canTow(sd.currentSled);
     const types = cargoData.types as Record<string, { name: string; massKg: number; fragile: boolean }>;
     const rows = DELIVERY_JOBS.map((j) => {
@@ -210,7 +215,7 @@ export class Menu {
   private renderEvents(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const rows = SNOCROSS_EVENTS.map((e) => {
       const rec = sd.snocross[e.id];
       const locked = tier < e.tier;
@@ -233,7 +238,7 @@ export class Menu {
   private renderContracts(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const timeName: Record<string, string> = { morning: 'Morning', golden: 'Dusk', overcast: 'Overcast', night: 'Night' };
     const rows = SPECIAL_CONTRACTS.map((c) => {
       const a = jobPoint(g, c.from), b = jobPoint(g, c.to);

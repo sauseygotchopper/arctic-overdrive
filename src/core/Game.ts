@@ -256,6 +256,7 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     this.resize();
     Object.assign(window, { __game: this, __dev: this.dev });
+    this.dev.armSecretCode();
     this.toMenu();
     await step('Ready', 1);
   }

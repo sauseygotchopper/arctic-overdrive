@@ -62,6 +62,13 @@ export class Garage {
     this.el.classList.remove('show');
   }
 
+  /** Redraw after the save changed underneath the open screen. */
+  refresh() {
+    if (!this.el.classList.contains('show')) return;
+    this.render();
+    this.updateModel();
+  }
+
   update(dt: number) {
     if (this.msgTimer > 0 && (this.msgTimer -= dt) <= 0) this.el.querySelector('.g-msg')?.classList.remove('show');
   }

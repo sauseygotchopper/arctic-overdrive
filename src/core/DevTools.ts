@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import type { Game } from './Game';
 import type { CargoType } from '../vehicles/Cargo';
 import { RouteFollower, FollowOptions } from '../modes/ai/RouteFollower';
+import { SecretCode } from './SecretCode';
 
 /**
  * Console helpers for tuning: `__dev.startTrail('loop', 'full')`, `__dev.drive(10, 60)`.
  * Drives with a simple trail-following autopilot through the deterministic simulate() path.
+ * Also owns the secret developer unlock: `UNLOCK_CODE` anywhere in the game, or `__dev.unlockAll()`.
  */
 export class DevTools {
   log: string[] = [];
@@ -13,6 +15,33 @@ export class DevTools {
   private trail = 'loop';
 
   constructor(private game: Game) {}
+
+  /** Konami code: ↑ ↑ ↓ ↓ ← → ← → B A. Works on the title, in menus and the garage, and mid-ride. */
+  static readonly UNLOCK_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+
+  /** Start listening for UNLOCK_CODE (the UI must exist). Key-rebinding is left alone. */
+  armSecretCode() {
+    new SecretCode(DevTools.UNLOCK_CODE, () => this.unlockAll(), { enabled: () => !this.game.settings.visible });
+  }
+
+  /** Open everything at once (sleds, parts, paint, trailer upgrades, modes, jobs, skills, cash) and say so on screen. */
+  unlockAll() {
+    const g = this.game;
+    g.progression.unlockEverything();
+    g.menu.refresh();
+    g.garage.refresh();
+    g.audioCue('finish');
+    document.querySelector('.dev-banner')?.remove();
+    const el = document.createElement('div');
+    el.className = 'dev-banner';
+    const title = document.createElement('b');
+    title.textContent = 'Dev unlock';
+    const sub = document.createElement('span');
+    sub.textContent = 'Every sled, part, paint, mode and skill is open';
+    el.append(title, sub);
+    document.body.append(el);
+    setTimeout(() => el.remove(), 3400);
+  }
 
   static readonly LOADS: Record<string, CargoType[] | null> = {
     none: null,
