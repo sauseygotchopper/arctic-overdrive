@@ -35,6 +35,7 @@ export class AudioSystem {
   private buffers = new Map<string, AudioBuffer | null>();
   private loops = new Map<string, Loop>();
   private lastHover = 0;
+  private noise: AudioBuffer | null = null;
 
   constructor(private volumes: Volumes) {
     // browsers only allow audio after a user gesture
@@ -165,6 +166,61 @@ export class AudioSystem {
       this.lastHover = this.ctx.currentTime;
     }
     this.play(name);
+  }
+
+  /**
+   * A man's grunt, synthesised (no recording needed): a buzzy voice sliding down in pitch through "uh"
+   * formants with a breath of noise. `deep` is the long, low one from the bottom of a squat.
+   */
+  grunt(level = 1, pan = 0, deep = false) {
+    if (!this.ctx || level < 0.02) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dur = deep ? 0.6 : 0.26 + Math.random() * 0.1;
+    const f0 = (deep ? 74 : 104) * (0.92 + Math.random() * 0.16);
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(Math.min(1.5, level) * 0.9, t + 0.03);
+    out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    out.connect(panner).connect(this.bus.effects);
+    const voice = ctx.createGain();
+    for (const [type, mult, gain] of [['sawtooth', 1, 1], ['square', 0.5, 0.4]] as const) {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f0 * mult * 1.3, t);
+      osc.frequency.exponentialRampToValueAtTime(f0 * mult, t + 0.07);
+      osc.frequency.exponentialRampToValueAtTime(f0 * mult * 0.68, t + dur);
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      osc.connect(g).connect(voice);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
+    }
+    for (const [type, freq, q, gain] of [['lowpass', 260, 0.7, 0.8], ['bandpass', 540, 5, 1.6], ['bandpass', 1080, 7, 0.7]] as const) {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      f.Q.value = q;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      voice.connect(f).connect(g).connect(out);
+    }
+    if (!this.noise) {
+      this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = this.noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const breath = ctx.createBufferSource();
+    breath.buffer = this.noise;
+    const bf = ctx.createBiquadFilter();
+    bf.type = 'bandpass';
+    bf.frequency.value = 900;
+    bf.Q.value = 0.8;
+    const bg = ctx.createGain();
+    bg.gain.value = 0.16;
+    breath.connect(bf).connect(bg).connect(out);
+    breath.start(t, Math.random() * 0.3, dur + 0.05);
   }
 
   /** Chase audio for Special Delivery: nearest agent's siren and the helicopter (null = off). */

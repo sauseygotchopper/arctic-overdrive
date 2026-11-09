@@ -394,7 +394,7 @@ function lerpHand(cur: THREE.Vector3 | null, target: THREE.Vector3 | null, grip:
 }
 
 /** Two-bone IK: joint position for a limb from a → c with segment lengths l1, l2, bending toward `hint`. */
-function solveIK(a: THREE.Vector3, c: THREE.Vector3, l1: number, l2: number, hint: THREE.Vector3): THREE.Vector3 {
+export function solveIK(a: THREE.Vector3, c: THREE.Vector3, l1: number, l2: number, hint: THREE.Vector3): THREE.Vector3 {
   const ac = new THREE.Vector3().subVectors(c, a);
   let d = ac.length();
   const dir = ac.clone().normalize();

@@ -20,10 +20,13 @@ export interface SledVisual {
   setRack(items: THREE.Object3D[]): void;
   /** Rider head position in sled space – the hood camera sits here. */
   headLocal: THREE.Vector3;
+  /** Where the handlebar sits in sled space: the point between the grips, and the bars' steering turn about vertical. */
+  barsLocal(pos: THREE.Vector3, quat: THREE.Quaternion): void;
 }
 
 const LUG_PITCH = 0.0762; // 3in, a common track pitch
 const SCRATCH = new THREE.Object3D();
+const UP = new THREE.Vector3(0, 1, 0);
 
 /** One front-suspension link: chassis point → a point on the spindle, drawn as an instance of `kind`. */
 interface Strut { kind: number; idx: number; from: THREE.Vector3; left: boolean; dy: number; dx: number; dz: number }
@@ -524,6 +527,12 @@ export class SledModel implements SledVisual {
     const gr = this.gripR.position.clone().applyMatrix4(this.bars.matrix);
     this.rider.update(dt, state, gl, gr);
     this.headLocal.copy(this.rider.headPos).add(new THREE.Vector3(0, 0.05, 0.05));
+  }
+
+  barsLocal(pos: THREE.Vector3, quat: THREE.Quaternion) {
+    this.bars.updateMatrix();
+    pos.set(0, this.gripL.position.y, 0).applyMatrix4(this.bars.matrix);
+    quat.setFromAxisAngle(UP, this.bars.rotation.y);
   }
 
   setRack(items: THREE.Object3D[]) {

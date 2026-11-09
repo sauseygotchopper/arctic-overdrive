@@ -128,7 +128,7 @@ button { font: inherit; color: inherit; }
 .hud-combo .pts { font-family: var(--font-display); font-size: 46px; color: #fff; transform: skewX(-8deg); font-variant-numeric: tabular-nums; }
 .hud-combo .pose { font-size: 12px; font-weight: 800; letter-spacing: .24em; color: var(--accent); }
 .hud-banner { position: absolute; top: 30%; left: 50%; transform: translate(-50%, 8px) skewX(-8deg) scale(.96); font-family: var(--font-display); font-size: 54px;
-  text-transform: uppercase; opacity: 0; transition: opacity .2s, transform .2s cubic-bezier(.2,1.6,.4,1); white-space: nowrap; }
+  text-transform: uppercase; opacity: 0; transition: opacity .2s, transform .2s cubic-bezier(.2,1.6,.4,1); width: max-content; max-width: 88vw; text-align: center; line-height: 1.05; }
 .hud-banner.show { opacity: 1; transform: translate(-50%, 0) skewX(-8deg) scale(1); }
 .hud-banner.good { color: var(--good); }
 .hud-banner.warn { color: var(--warn); }

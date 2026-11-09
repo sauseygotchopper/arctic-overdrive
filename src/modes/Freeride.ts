@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
+import { AngryRanga } from './AngryRanga';
 import freerideData from '../data/freeride.json';
 import modesData from '../data/modes.json';
 
@@ -22,8 +23,11 @@ export class Freeride implements GameMode {
   private spots: TrickSpot[] = [];
   private t = 0;
   private inSpot: TrickSpot | null = null;
+  private ranga: AngryRanga;
 
-  constructor(private game: Game) {}
+  constructor(private game: Game) {
+    this.ranga = new AngryRanga(game);
+  }
 
   private get progress() {
     return this.game.save.data.freeride;
@@ -81,11 +85,13 @@ export class Freeride implements GameMode {
     }
     this.group.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
     g.scene.add(this.group);
+    this.ranga.enter();
   }
 
   exit() {
     const g = this.game;
     disposeObject(this.group);
+    this.ranga.exit();
     g.player.stunts.bonusMultiplier = 1;
     g.hud.setObjective(null);
   }
@@ -100,6 +106,7 @@ export class Freeride implements GameMode {
     const g = this.game;
     this.t += dt;
     const p = g.player.physics.position;
+    this.ranga.update(dt);
     for (const c of [...this.crystals]) {
       const gem = c.mesh.getObjectByName('gem')!;
       gem.rotation.y = this.t * 1.6;
@@ -160,5 +167,6 @@ export class Freeride implements GameMode {
       ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y + 3); ctx.lineTo(x - 4, y + 3); ctx.closePath();
       ctx.fill();
     }
+    this.ranga.drawMap(ctx, toMap);
   }
 }
