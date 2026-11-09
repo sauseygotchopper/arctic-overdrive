@@ -2,7 +2,7 @@ import type { Game } from '../core/Game';
 import { riderLevel } from '../core/Progression';
 import {
   SLEDS, PART_CATEGORIES, SLOT_NAMES, PARTS, COSMETICS, TUNING_DEFS, DEFAULT_TUNING,
-  getSled, getPart, partFits, displayStats, SledSetup, StatLine, Tuning,
+  getSled, getPart, partFits, partMisfit, displayStats, SledSetup, StatLine, Tuning,
 } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
 
@@ -60,6 +60,13 @@ export class Garage {
 
   close() {
     this.el.classList.remove('show');
+  }
+
+  /** Redraw after the save changed underneath the open screen. */
+  refresh() {
+    if (!this.el.classList.contains('show')) return;
+    this.render();
+    this.updateModel();
   }
 
   update(dt: number) {
@@ -203,7 +210,7 @@ export class Garage {
       const p = getPart(pv.id)!;
       const g = this.prog.garage(this.sledId);
       const owned = g.parts.includes(p.id);
-      if (!partFits(p, getSled(this.sledId))) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>Needs a tier ${p.tier}+ sled</button>`;
+      if (!partFits(p, getSled(this.sledId))) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>${esc(partMisfit(p, getSled(this.sledId)))}</button>`;
       if (g.installed[p.slot] === p.id) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>Installed</button>`;
       return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act primary" data-act="buyPart" ${owned || sd.currency >= p.price ? '' : 'disabled'}>${owned ? 'Install' : `Buy & install · $${fmt(p.price)}`}</button>`;
     }
@@ -212,7 +219,7 @@ export class Garage {
     const g = this.prog.garage(this.sledId);
     const owned = item.price === 0 || g.cosmetics.includes(`${pv.cosmeticKind}:${pv.id}`);
     if (g.livery[pv.cosmeticKind] === pv.id) return '<button class="g-act" disabled>Applied</button>';
-    if (item.minTier && getSled(this.sledId).tier < item.minTier) return '<button class="g-act" disabled>Turbo Build only</button>';
+    if (item.minTier && getSled(this.sledId).tier < item.minTier) return `<button class="g-act" disabled>Needs a tier ${item.minTier}+ sled</button>`;
     return `<button class="g-act primary" data-act="buyCosmetic" ${owned || sd.currency >= item.price ? '' : 'disabled'}>${owned ? 'Apply' : `Buy & apply · $${fmt(item.price)}`}</button>`;
   }
 
@@ -237,7 +244,7 @@ export class Garage {
         <button class="item part ${!fitted ? 'fitted' : ''} ${isSel(this.preview, (p) => p.kind === 'stock' && p.slot === slot)}" data-stock="${slot}"><span class="nm">${slot === 'hitch' ? 'None' : 'Stock'}</span><span class="st">${!fitted ? '✓' : ''}</span></button>
         ${PARTS.filter((p) => p.slot === slot).map((p) => {
           const fits = partFits(p, spec);
-          const st = fitted === p.id ? '✓' : g.parts.includes(p.id) ? 'Owned' : fits ? `$${fmt(p.price)}` : `T${p.tier}+`;
+          const st = fitted === p.id ? '✓' : g.parts.includes(p.id) ? 'Owned' : fits ? `$${fmt(p.price)}` : p.engineFrom === spec.id ? 'Built in' : `T${p.tier}+`;
           return `<button class="item part ${fitted === p.id ? 'fitted' : ''} ${fits ? '' : 'locked'} ${isSel(this.preview, (x) => x.kind === 'part' && x.id === p.id)}" data-part="${p.id}"><span class="nm">${esc(p.name)}</span><span class="st">${st}</span></button>`;
         }).join('')}</div>`;
     }).join('');
@@ -279,7 +286,7 @@ export class Garage {
       const sel = this.preview?.kind === 'cosmetic' && this.preview.cosmeticKind === kind && this.preview.id === x.id ? 'sel' : '';
       return `<button class="item cos ${on ? 'fitted' : ''} ${locked ? 'locked' : ''} ${sel}" data-cos="${kind}" data-id="${x.id}">
         <span class="chip" style="background:${kind === 'wrap' ? 'repeating-linear-gradient(45deg,#ffffff22 0 6px,transparent 6px 12px),' : ''}linear-gradient(135deg, ${chip} 55%, ${x.accent ?? spec.colors.accent} 55%)"></span>
-        <span class="nm">${esc(x.name)}</span><span class="st">${on ? '✓' : owned ? '' : locked ? 'T5' : `$${fmt(x.price)}`}</span></button>`;
+        <span class="nm">${esc(x.name)}</span><span class="st">${on ? '✓' : owned ? '' : locked ? `T${x.minTier}` : `$${fmt(x.price)}`}</span></button>`;
     }).join('');
     return `<div class="cat">Paint</div>${sw('paint', COSMETICS.paints)}
       <div class="cat">Wrap</div>${sw('wrap', COSMETICS.wraps)}

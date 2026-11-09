@@ -1,5 +1,5 @@
 {
-  "_doc": "Base sled specs, one per tier, each modelled on a real-world class. Lengths in metres unless suffixed In (inches, as tracks are sold). springRate/damping multiply the derived suspension; hardGrip scales lateral grip on ice/crust (mountain sleds are twitchy there). unlock = progress needed before the sled can be bought (price is separate). style picks model details. unlock may also use deliveries (completed jobs), podiums and wins (snocross).",
+  "_doc": "Base sled specs, one per tier, each modelled on a real-world class. Lengths in metres unless suffixed In (inches, as tracks are sold). springRate/damping multiply the derived suspension; hardGrip scales lateral grip on ice/crust (mountain sleds are twitchy there). unlock = progress needed before the sled can be bought (price is separate). style picks model details. unlock may also use deliveries (completed jobs), podiums and wins (snocross). rails (0..1, default 0) is the 'glued to the snow' cheat: traction control, grip that ignores the surface, no sideways drift, self-levelling and a lifted surface speed cap (tuning in handling.json 'rails').",
   "starter": "nordvik-trail-600",
   "sleds": [
     {
@@ -207,6 +207,53 @@
         "accent": "#ff5a1f",
         "seat": "#16181d",
         "ski": "#ff5a1f"
+      }
+    },
+    {
+      "id": "overdrive-ultimate-cheat",
+      "brand": "Overdrive Works",
+      "model": "Ultimate Cheat Sled",
+      "tier": 6,
+      "class": "Ultimate / Unfair",
+      "reference": "Factory-secret twin-turbo hyper-sled on a 156in x 2.4in chassis: 350 hp stock, 967 hp fully built. Glued to the snow, rides on rails.",
+      "style": "cheat",
+      "price": 85000,
+      "unlock": {
+        "xp": 25000,
+        "gold": 3,
+        "crystals": 20,
+        "deliveries": 10,
+        "wins": 5
+      },
+      "powerKW": 261.2,
+      "peakRpm": 8200,
+      "idleRpm": 1900,
+      "engageRpm": 4400,
+      "engineType": "4-stroke",
+      "maxRpm": 8800,
+      "topSpeedKmh": 235,
+      "dryWeightKg": 285,
+      "trackLengthIn": 156,
+      "trackWidthIn": 17,
+      "lugHeightIn": 2.4,
+      "suspensionTravelFront": 0.28,
+      "suspensionTravelRear": 0.42,
+      "springRate": 1.3,
+      "damping": 1.4,
+      "skiStance": 1.12,
+      "skiWidth": 0.18,
+      "handling": 1.0,
+      "hardGrip": 1.35,
+      "rails": 1.0,
+      "fullBuild": ["intake-3", "exhaust-3", "ecu-3", "turbo-3", "clutch-cheat", "studs-144", "shocks-pro", "skis-pro", "weight-3"],
+      "durability": 0.95,
+      "dragArea": 0.78,
+      "maxPartTier": 6,
+      "colors": {
+        "body": "#10151f",
+        "accent": "#19f0ff",
+        "seat": "#0b0f16",
+        "ski": "#19f0ff"
       }
     }
   ],

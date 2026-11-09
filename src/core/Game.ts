@@ -163,6 +163,7 @@ export class Game {
     });
     this.scene.add(this.scenery.group);
     this.physics.addStatic(this.scenery.colliders);
+    this.physics.setTrunkFriction(HANDLING[handlingMode()].treeAssist ? 0 : 0.4);
     this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
     this.scene.add(this.jumps.group);
     for (const c of this.jumps.colliders) this.physics.addTrimesh(c.vertices, c.indices);
@@ -237,6 +238,7 @@ export class Game {
     this.input.keys = { ...structuredClone(DEFAULT_KEYS), ...this.save.data.settings.keys } as typeof this.input.keys;
     this.hud.setWallet(this.save.data.currency, this.save.data.xp);
     this.minimap = new MiniMap(this.hud.el, this.terrain, this.scenery.treePositions, this.terrain.def.cabins);
+    this.minimap.setVisible(this.save.data.settings.minimap);
     this.loose = new LooseCargo(this.physics, this.scene);
 
     this.progression = new Progression(this.save.data, () => {
@@ -256,6 +258,7 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     this.resize();
     Object.assign(window, { __game: this, __dev: this.dev });
+    this.dev.armSecretCode();
     this.toMenu();
     await step('Ready', 1);
   }
@@ -273,6 +276,7 @@ export class Game {
     const setup = this.progression.setupFor(this.save.data.currentSled);
     this.playerSetupKey = JSON.stringify(setup);
     this.player = new Sled(this.physics, this.terrain, setup, new THREE.Vector3(sp.x, this.terrain.heightAt(sp.x, sp.z) + 0.9, sp.z), yaw);
+    this.player.trees = this.scenery.trees;
     this.scene.add(this.player.visual.root);
   }
 
@@ -298,6 +302,33 @@ export class Game {
     this.simulate(1, IDLE_INPUT);
   }
 
+  /**
+   * Dev hotkey support: can the ridden sled be rebuilt from the save right now? Yes in the menu, the garage and
+   * Freeride; not in timed or scripted modes (a different sled would void the run) nor in photo mode or a replay.
+   */
+  canRebuildPlayerNow(): boolean {
+    if (this.state !== 'playing') return true;
+    return this.mode?.id === 'freeride' && !this.photo.active && !this.replay.active;
+  }
+
+  /**
+   * Rebuild the ridden sled from the save (after canRebuildPlayerNow). The menu rebuilds it at the spawn; the garage
+   * does so when it closes; in Freeride the new sled carries on from the old one's position, heading and velocity.
+   */
+  rebuildPlayerNow() {
+    if (this.state === 'garage') { this.garage.refresh(); return; }
+    if (this.state === 'menu') { this.refreshPlayer(); this.menu.refresh(); return; }
+    const p = this.player.physics;
+    const pos = p.position.clone();
+    const vel = p.velocity.clone();
+    const yaw = Math.atan2(p.forward.x, p.forward.z);
+    this.createPlayer(); // drops any trailer, disposes the old sled
+    this.player.teleport(pos, yaw);
+    this.player.physics.body.setLinvel({ x: vel.x, y: vel.y, z: vel.z }, true);
+    this.applyLighting();
+    this.player.physics.readState();
+  }
+
   /** Per-frame: lamps, headlights, windows and snowfall follow the continuous time of day and the weather. */
   applyLighting() {
     const sky = this.sky;
@@ -321,7 +352,17 @@ export class Game {
 
   // ---------- modes / menu ----------
 
+  /** Nothing may be left on top of the screen we're switching to. */
+  private closeOverlays() {
+    if (this.state === 'garage' || this.showroom.active) {
+      this.garage.close();
+      this.showroom.active = false;
+    }
+    if (this.settings.visible) this.settings.show(false);
+  }
+
   startMode(id: string, arg?: string) {
+    this.closeOverlays();
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -345,6 +386,7 @@ export class Game {
   }
 
   toMenu(view?: 'delivery' | 'snocross' | 'courses' | 'special' | 'skills') {
+    this.closeOverlays();
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -382,6 +424,14 @@ export class Game {
     cb?.();
   }
 
+  private toggleMinimap() {
+    const on = !this.minimap.visible;
+    this.minimap.setVisible(on);
+    this.save.data.settings.minimap = on;
+    this.save.save();
+    this.hud.toast(`Minimap ${on ? 'on' : 'off'}`);
+  }
+
   private toggleDayCycle() {
     this.setDayCycle(!this.sky.cycle);
     this.hud.toast(`Day/night cycle ${this.sky.cycle ? 'on' : 'off'}`);
@@ -391,6 +441,7 @@ export class Game {
   setHandling(m: HandlingMode) {
     setHandlingMode(m);
     this.physics.setGravityScale(HANDLING[handlingMode()].gravityScale);
+    this.physics.setTrunkFriction(HANDLING[handlingMode()].treeAssist ? 0 : 0.4);
     this.player.refreshSetup();
     this.player.trailer?.applyUpgrades();
     this.save.data.settings.handling = handlingMode();
@@ -654,6 +705,7 @@ export class Game {
       this.save.data.settings.camera = this.rig.mode;
       this.save.save();
     }
+    if (input.consumePressed('minimap')) this.toggleMinimap();
     if (input.consumePressed('reset') && !this.hud.resultsOpen && !this.mode?.recover?.()) this.player.recover();
     if (freeride) {
       if (input.consumePressed('timeOfDay')) this.cycleTime();

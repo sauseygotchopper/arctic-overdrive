@@ -72,7 +72,17 @@ export class Menu {
     return this.el.classList.contains('show');
   }
 
+  /** Redraw the current view after the save changed underneath it. */
+  refresh() {
+    if (this.visible) this.render();
+  }
+
+  private lastView = '';
+
   private render() {
+    // re-rendering the same view (buying a skill, etc.) must not replay the slide-in under the pointer
+    this.el.classList.toggle('no-anim', this.view === this.lastView && this.el.classList.contains('show'));
+    this.lastView = this.view;
     const g = this.game;
     const sd = g.save.data;
     const lvl = riderLevel(sd.xp);
@@ -117,7 +127,7 @@ export class Menu {
           : m.id === 'snocross' ? `Up to $${Math.max(...SNOCROSS_EVENTS.map((e) => e.rewards[0])).toLocaleString('en-US')} for a win`
           : m.id === 'special' ? `Up to $${fmt(Math.max(...SPECIAL_CONTRACTS.map((c) => c.pay * (1 + specialData.wantedBonus * c.maxStars))))} per contract` : '';
         const unlock = (m as { unlock?: { deliveries?: number } }).unlock;
-        const needDeliveries = unlock?.deliveries && sd.delivery.completed < unlock.deliveries ? unlock.deliveries : 0;
+        const needDeliveries = unlock?.deliveries && sd.delivery.completed < unlock.deliveries && !g.progression.devUnlock ? unlock.deliveries : 0;
         const open = m.available && !needDeliveries;
         return `
           <button class="card ${open ? '' : 'locked'}" data-mode="${m.id}" ${open ? '' : 'disabled'}>
@@ -172,7 +182,7 @@ export class Menu {
   private renderJobs(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const hitch = g.progression.canTow(sd.currentSled);
     const types = cargoData.types as Record<string, { name: string; massKg: number; fragile: boolean }>;
     const rows = DELIVERY_JOBS.map((j) => {
@@ -205,7 +215,7 @@ export class Menu {
   private renderEvents(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const rows = SNOCROSS_EVENTS.map((e) => {
       const rec = sd.snocross[e.id];
       const locked = tier < e.tier;
@@ -228,7 +238,7 @@ export class Menu {
   private renderContracts(head: string, goalHtml: string) {
     const g = this.game;
     const sd = g.save.data;
-    const tier = getSled(sd.currentSled).tier;
+    const tier = g.progression.accessTier();
     const timeName: Record<string, string> = { morning: 'Morning', golden: 'Dusk', overcast: 'Overcast', night: 'Night' };
     const rows = SPECIAL_CONTRACTS.map((c) => {
       const a = jobPoint(g, c.from), b = jobPoint(g, c.to);
@@ -271,14 +281,19 @@ export class Menu {
       </div>`;
     this.el.appendChild(d);
     d.querySelector('.no')!.addEventListener('click', () => d.remove());
-    d.addEventListener('click', (e) => { if (e.target === d) d.remove(); });
+    d.addEventListener('click', (e) => { if (e.target === d && !go.disabled) d.remove(); });
     const go = d.querySelector('.go') as HTMLButtonElement;
     go.addEventListener('click', () => {
       if (go.disabled) return;
       go.disabled = true;
       d.querySelector('.scauce-bubble')!.innerHTML = `<b class="scauce-shout">${SCAUCE.accept}</b>`;
       d.querySelector('.scauce-actions')!.remove();
-      setTimeout(() => { d.remove(); this.game.startMode('special', id); }, 1100);
+      // only start if the dialog is still up (Esc during the shout cancels) and nothing else took over
+      setTimeout(() => {
+        if (!d.isConnected || !this.visible) return;
+        d.remove();
+        this.game.startMode('special', id);
+      }, 1100);
     });
     go.focus();
   }

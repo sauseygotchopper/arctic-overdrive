@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { disposeObject } from '../core/dispose';
 import { SledModel } from '../vehicles/SledModel';
 import { SledSetup, deriveParams } from '../vehicles/SledSpec';
@@ -35,6 +36,11 @@ export class Showroom {
     const bg = new THREE.CanvasTexture(c);
     bg.colorSpace = THREE.SRGBColorSpace;
     this.scene.background = bg;
+    // soft studio reflections for the clearcoat paint and chrome
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.35;
+    pmrem.dispose();
 
     this.scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x1a2230, 1.1));
     const key = new THREE.SpotLight(0xfff4e6, 260, 30, 0.55, 0.6, 1.6);

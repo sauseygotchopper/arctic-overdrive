@@ -269,7 +269,7 @@ export class Snocross implements GameMode {
       total: { currency, xp },
       actions: [
         { label: 'Race again', key: 'R', primary: true, run: () => this.reset() },
-        ...(nextEv && getSled(g.save.data.currentSled).tier >= nextEv.tier ? [{ label: 'Next event', key: 'N', run: () => g.startMode('snocross', nextEv.id) }] : []),
+        ...(nextEv && g.progression.accessTier() >= nextEv.tier ? [{ label: 'Next event', key: 'N', run: () => g.startMode('snocross', nextEv.id) }] : []),
         { label: 'Menu', key: 'Esc', run: () => g.toMenu() },
       ],
     });

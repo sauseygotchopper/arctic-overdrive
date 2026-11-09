@@ -62,6 +62,13 @@ export class PhysicsWorld {
     return maxErr;
   }
 
+  private trunks: RAPIER.Collider[] = [];
+
+  /** Arcade handling gives tree trunks slick bark, so a glancing hit slides off instead of grabbing and spinning the sled. */
+  setTrunkFriction(f: number) {
+    for (const c of this.trunks) c.setFriction(f);
+  }
+
   addStatic(cols: StaticCollider[]) {
     for (const c of cols) {
       let desc: RAPIER.ColliderDesc;
@@ -73,7 +80,8 @@ export class PhysicsWorld {
         desc.setRotation({ x: 0, y: s, z: 0, w: Math.cos(c.rotY / 2) });
       }
       desc.setTranslation(c.x, c.y, c.z).setFriction(0.4);
-      this.world.createCollider(desc);
+      const col = this.world.createCollider(desc);
+      if (c.kind === 'cylinder' && c.tree) this.trunks.push(col);
     }
   }
 
