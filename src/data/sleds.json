@@ -245,6 +245,7 @@
       "handling": 1.0,
       "hardGrip": 1.35,
       "rails": 1.0,
+      "fullBuild": ["intake-3", "exhaust-3", "ecu-3", "turbo-3", "clutch-cheat", "studs-144", "shocks-pro", "skis-pro", "weight-3"],
       "durability": 0.95,
       "dragArea": 0.78,
       "maxPartTier": 6,

@@ -2,7 +2,7 @@ import type { Game } from '../core/Game';
 import { riderLevel } from '../core/Progression';
 import {
   SLEDS, PART_CATEGORIES, SLOT_NAMES, PARTS, COSMETICS, TUNING_DEFS, DEFAULT_TUNING,
-  getSled, getPart, partFits, displayStats, SledSetup, StatLine, Tuning,
+  getSled, getPart, partFits, partMisfit, displayStats, SledSetup, StatLine, Tuning,
 } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
 
@@ -210,7 +210,7 @@ export class Garage {
       const p = getPart(pv.id)!;
       const g = this.prog.garage(this.sledId);
       const owned = g.parts.includes(p.id);
-      if (!partFits(p, getSled(this.sledId))) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>Needs a tier ${p.tier}+ sled</button>`;
+      if (!partFits(p, getSled(this.sledId))) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>${esc(partMisfit(p, getSled(this.sledId)))}</button>`;
       if (g.installed[p.slot] === p.id) return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act" disabled>Installed</button>`;
       return `<div class="g-desc">${esc(p.desc)}</div><button class="g-act primary" data-act="buyPart" ${owned || sd.currency >= p.price ? '' : 'disabled'}>${owned ? 'Install' : `Buy & install · $${fmt(p.price)}`}</button>`;
     }
@@ -244,7 +244,7 @@ export class Garage {
         <button class="item part ${!fitted ? 'fitted' : ''} ${isSel(this.preview, (p) => p.kind === 'stock' && p.slot === slot)}" data-stock="${slot}"><span class="nm">${slot === 'hitch' ? 'None' : 'Stock'}</span><span class="st">${!fitted ? '✓' : ''}</span></button>
         ${PARTS.filter((p) => p.slot === slot).map((p) => {
           const fits = partFits(p, spec);
-          const st = fitted === p.id ? '✓' : g.parts.includes(p.id) ? 'Owned' : fits ? `$${fmt(p.price)}` : `T${p.tier}+`;
+          const st = fitted === p.id ? '✓' : g.parts.includes(p.id) ? 'Owned' : fits ? `$${fmt(p.price)}` : p.engineFrom === spec.id ? 'Built in' : `T${p.tier}+`;
           return `<button class="item part ${fitted === p.id ? 'fitted' : ''} ${fits ? '' : 'locked'} ${isSel(this.preview, (x) => x.kind === 'part' && x.id === p.id)}" data-part="${p.id}"><span class="nm">${esc(p.name)}</span><span class="st">${st}</span></button>`;
         }).join('')}</div>`;
     }).join('');

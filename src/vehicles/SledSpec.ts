@@ -34,6 +34,8 @@ export interface SledSpec {
   hardGrip: number;
   /** 0..1 'glued to the snow' cheat (traction control, surface-proof grip, no drift, self-levelling). Default 0. */
   rails?: number;
+  /** Part ids fitted when the dev hotkey grants this sled fully built (see Progression.grantTopSled). */
+  fullBuild?: string[];
   durability: number;
   dragArea: number;
   maxPartTier: number;
@@ -52,7 +54,11 @@ export interface Tuning { spring: number; compression: number; rebound: number; 
 export const DEFAULT_TUNING: Tuning = { spring: 0, compression: 0, rebound: 0, balance: 0, engage: 0, gearing: 0 };
 export interface TuningDef { id: keyof Tuning; section: string; name: string; min: number; max: number; step: number; unit: string; lo: string; hi: string; desc: string }
 export const TUNING_DEFS = partsData.tuning as TuningDef[];
-export interface PartDef { id: string; slot: string; name: string; desc: string; price: number; tier: number; effects: PartEffects }
+export interface PartDef {
+  id: string; slot: string; name: string; desc: string; price: number; tier: number; effects: PartEffects;
+  /** Engine swap: the sled whose engine (power, rev range, gearing and top speed) replaces this chassis's own. */
+  engineFrom?: string;
+}
 
 export const SLEDS: SledSpec[] = sledData.sleds as SledSpec[];
 export const STARTER_SLED: string = sledData.starter;
@@ -72,9 +78,26 @@ export function getPart(id: string): PartDef | undefined {
   return PARTS.find((p) => p.id === id);
 }
 
-/** A part fits a sled if its tier is within the sled's tier and the sled's part-tier ceiling. */
+/**
+ * A part fits a sled if its tier is within the sled's tier and the sled's part-tier ceiling. An engine swap
+ * never fits the sled it takes the engine from (it already has it).
+ */
 export function partFits(part: PartDef, spec: SledSpec): boolean {
-  return part.tier <= spec.tier && part.tier <= spec.maxPartTier;
+  return part.tier <= spec.tier && part.tier <= spec.maxPartTier && part.engineFrom !== spec.id;
+}
+
+/** Why a part doesn't fit a sled (for buttons and errors). */
+export function partMisfit(part: PartDef, spec: SledSpec): string {
+  return part.engineFrom === spec.id ? 'This sled already has that engine' : `Needs a tier ${part.tier}+ sled`;
+}
+
+/** The engine a setup runs: its own, or the donor's if an engine-swap part is fitted. */
+export function engineOf(setup: Pick<SledSetup, 'spec' | 'parts'>): SledSpec {
+  for (const id of setup.parts ?? []) {
+    const donor = getPart(id)?.engineFrom;
+    if (donor) return getSled(donor);
+  }
+  return setup.spec;
 }
 
 export interface Livery { paint: string; wrap: string; number: number; gear: string }
@@ -178,6 +201,7 @@ export function combinedEffects(partIds: string[] = []): Required<PartEffects> {
 
 export function deriveParams(setup: SledSetup): SledParams {
   const s = setup.spec;
+  const eng = engineOf(setup); // == s unless an engine swap is fitted
   const e = combinedEffects(setup.parts);
   const k = skillEffects(setup.skills);
   const sk = (id: string) => k[id] ?? 0;
@@ -196,12 +220,12 @@ export function deriveParams(setup: SledSetup): SledParams {
   return {
     mass,
     dryMass,
-    powerW: s.powerKW * 1000 * (1 + e.powerPct / 100),
-    idleRpm: s.idleRpm,
-    engageRpm: s.engageRpm + t.engage,
-    peakRpm: s.peakRpm + e.peakRpmAdd,
-    maxRpm: s.maxRpm + e.maxRpmAdd,
-    topSpeed: (s.topSpeedKmh * (1 + e.topSpeedPct / 100) * (1 - gear * 0.4)) / 3.6,
+    powerW: eng.powerKW * 1000 * (1 + e.powerPct / 100),
+    idleRpm: eng.idleRpm,
+    engageRpm: eng.engageRpm + t.engage,
+    peakRpm: eng.peakRpm + e.peakRpmAdd,
+    maxRpm: eng.maxRpm + e.maxRpmAdd,
+    topSpeed: (eng.topSpeedKmh * (1 + e.topSpeedPct / 100) * (1 - gear * 0.4)) / 3.6,
     trackLengthIn,
     lugHeightIn,
     trackContactLen,
@@ -209,7 +233,7 @@ export function deriveParams(setup: SledSetup): SledParams {
     skiWidth,
     skiArea: s.skiWidth * 0.9,
     trackArea: (trackContactLen * trackWidth) / 4,
-    engineBrakeG: s.engineType === '4-stroke' ? 0.09 : 0.045,
+    engineBrakeG: eng.engineType === '4-stroke' ? 0.09 : 0.045,
     flotation: (area / mass / REF_FLOAT_AREA_PER_KG) * (1 + sk('flotationPct') / 100) * (1 + rails * 0.35),
     powderTraction: (1 + (lugHeightIn - 1.25) * 0.55) * (1 + sk('powderTractionPct') / 100),
     hardpackDrag: Math.max(0, lugHeightIn - 1.0) * 0.006 + Math.max(0, trackLengthIn - 137) * 0.0002,

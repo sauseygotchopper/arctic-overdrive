@@ -302,6 +302,33 @@ export class Game {
     this.simulate(1, IDLE_INPUT);
   }
 
+  /**
+   * Dev hotkey support: can the ridden sled be rebuilt from the save right now? Yes in the menu, the garage and
+   * Freeride; not in timed or scripted modes (a different sled would void the run) nor in photo mode or a replay.
+   */
+  canRebuildPlayerNow(): boolean {
+    if (this.state !== 'playing') return true;
+    return this.mode?.id === 'freeride' && !this.photo.active && !this.replay.active;
+  }
+
+  /**
+   * Rebuild the ridden sled from the save (after canRebuildPlayerNow). The menu rebuilds it at the spawn; the garage
+   * does so when it closes; in Freeride the new sled carries on from the old one's position, heading and velocity.
+   */
+  rebuildPlayerNow() {
+    if (this.state === 'garage') { this.garage.refresh(); return; }
+    if (this.state === 'menu') { this.refreshPlayer(); this.menu.refresh(); return; }
+    const p = this.player.physics;
+    const pos = p.position.clone();
+    const vel = p.velocity.clone();
+    const yaw = Math.atan2(p.forward.x, p.forward.z);
+    this.createPlayer(); // drops any trailer, disposes the old sled
+    this.player.teleport(pos, yaw);
+    this.player.physics.body.setLinvel({ x: vel.x, y: vel.y, z: vel.z }, true);
+    this.applyLighting();
+    this.player.physics.readState();
+  }
+
   /** Per-frame: lamps, headlights, windows and snowfall follow the continuous time of day and the weather. */
   applyLighting() {
     const sky = this.sky;
