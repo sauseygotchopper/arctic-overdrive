@@ -10,7 +10,7 @@ export interface SledSpec {
   tier: number;
   class: string;
   reference: string;
-  style: 'trail' | 'crossover' | 'mountain' | 'race' | 'turbo';
+  style: 'trail' | 'crossover' | 'mountain' | 'race' | 'turbo' | 'cheat';
   price: number;
   unlock: { xp?: number; medals?: number; gold?: number; crystals?: number; deliveries?: number; podiums?: number; wins?: number };
   powerKW: number;
@@ -32,6 +32,10 @@ export interface SledSpec {
   skiWidth: number;
   handling: number;
   hardGrip: number;
+  /** 0..1 'glued to the snow' cheat (traction control, surface-proof grip, no drift, self-levelling). Default 0. */
+  rails?: number;
+  /** Part ids fitted when the dev hotkey grants this sled fully built (see Progression.grantTopSled). */
+  fullBuild?: string[];
   durability: number;
   dragArea: number;
   maxPartTier: number;
@@ -50,7 +54,11 @@ export interface Tuning { spring: number; compression: number; rebound: number; 
 export const DEFAULT_TUNING: Tuning = { spring: 0, compression: 0, rebound: 0, balance: 0, engage: 0, gearing: 0 };
 export interface TuningDef { id: keyof Tuning; section: string; name: string; min: number; max: number; step: number; unit: string; lo: string; hi: string; desc: string }
 export const TUNING_DEFS = partsData.tuning as TuningDef[];
-export interface PartDef { id: string; slot: string; name: string; desc: string; price: number; tier: number; effects: PartEffects }
+export interface PartDef {
+  id: string; slot: string; name: string; desc: string; price: number; tier: number; effects: PartEffects;
+  /** Engine swap: the sled whose engine (power, rev range, gearing and top speed) replaces this chassis's own. */
+  engineFrom?: string;
+}
 
 export const SLEDS: SledSpec[] = sledData.sleds as SledSpec[];
 export const STARTER_SLED: string = sledData.starter;
@@ -70,9 +78,26 @@ export function getPart(id: string): PartDef | undefined {
   return PARTS.find((p) => p.id === id);
 }
 
-/** A part fits a sled if its tier is within the sled's tier and the sled's part-tier ceiling. */
+/**
+ * A part fits a sled if its tier is within the sled's tier and the sled's part-tier ceiling. An engine swap
+ * never fits the sled it takes the engine from (it already has it).
+ */
 export function partFits(part: PartDef, spec: SledSpec): boolean {
-  return part.tier <= spec.tier && part.tier <= spec.maxPartTier;
+  return part.tier <= spec.tier && part.tier <= spec.maxPartTier && part.engineFrom !== spec.id;
+}
+
+/** Why a part doesn't fit a sled (for buttons and errors). */
+export function partMisfit(part: PartDef, spec: SledSpec): string {
+  return part.engineFrom === spec.id ? 'This sled already has that engine' : `Needs a tier ${part.tier}+ sled`;
+}
+
+/** The engine a setup runs: its own, or the donor's if an engine-swap part is fitted. */
+export function engineOf(setup: Pick<SledSetup, 'spec' | 'parts'>): SledSpec {
+  for (const id of setup.parts ?? []) {
+    const donor = getPart(id)?.engineFrom;
+    if (donor) return getSled(donor);
+  }
+  return setup.spec;
 }
 
 export interface Livery { paint: string; wrap: string; number: number; gear: string }
@@ -135,6 +160,8 @@ export interface SledParams {
   hitchYawBonus: number; // degrees added to the trailer's jackknife limit
   stance: number;
   steerMax: number; // rad at standstill
+  /** 0..1 rail-guidance strength (handling.json 'rails'); 0 for every ordinary sled. */
+  rails: number;
   handling: number;
   hardGrip: number; // lateral grip multiplier on ice/crust
   studGrip: number; // added track grip on ice/crust
@@ -174,9 +201,11 @@ export function combinedEffects(partIds: string[] = []): Required<PartEffects> {
 
 export function deriveParams(setup: SledSetup): SledParams {
   const s = setup.spec;
+  const eng = engineOf(setup); // == s unless an engine swap is fitted
   const e = combinedEffects(setup.parts);
   const k = skillEffects(setup.skills);
   const sk = (id: string) => k[id] ?? 0;
+  const rails = s.rails ?? 0;
   const t = { ...DEFAULT_TUNING, ...setup.tuning };
   const gear = t.gearing / 100;
   const dryMass = s.dryWeightKg + e.weightKg;
@@ -191,12 +220,12 @@ export function deriveParams(setup: SledSetup): SledParams {
   return {
     mass,
     dryMass,
-    powerW: s.powerKW * 1000 * (1 + e.powerPct / 100),
-    idleRpm: s.idleRpm,
-    engageRpm: s.engageRpm + t.engage,
-    peakRpm: s.peakRpm + e.peakRpmAdd,
-    maxRpm: s.maxRpm + e.maxRpmAdd,
-    topSpeed: (s.topSpeedKmh * (1 + e.topSpeedPct / 100) * (1 - gear * 0.4)) / 3.6,
+    powerW: eng.powerKW * 1000 * (1 + e.powerPct / 100),
+    idleRpm: eng.idleRpm,
+    engageRpm: eng.engageRpm + t.engage,
+    peakRpm: eng.peakRpm + e.peakRpmAdd,
+    maxRpm: eng.maxRpm + e.maxRpmAdd,
+    topSpeed: (eng.topSpeedKmh * (1 + e.topSpeedPct / 100) * (1 - gear * 0.4)) / 3.6,
     trackLengthIn,
     lugHeightIn,
     trackContactLen,
@@ -204,8 +233,8 @@ export function deriveParams(setup: SledSetup): SledParams {
     skiWidth,
     skiArea: s.skiWidth * 0.9,
     trackArea: (trackContactLen * trackWidth) / 4,
-    engineBrakeG: s.engineType === '4-stroke' ? 0.09 : 0.045,
-    flotation: (area / mass / REF_FLOAT_AREA_PER_KG) * (1 + sk('flotationPct') / 100),
+    engineBrakeG: eng.engineType === '4-stroke' ? 0.09 : 0.045,
+    flotation: (area / mass / REF_FLOAT_AREA_PER_KG) * (1 + sk('flotationPct') / 100) * (1 + rails * 0.35),
     powderTraction: (1 + (lugHeightIn - 1.25) * 0.55) * (1 + sk('powderTractionPct') / 100),
     hardpackDrag: Math.max(0, lugHeightIn - 1.0) * 0.006 + Math.max(0, trackLengthIn - 137) * 0.0002,
     travelFront: s.suspensionTravelFront + e.travelFront,
@@ -220,20 +249,21 @@ export function deriveParams(setup: SledSetup): SledParams {
     stance: s.skiStance,
     // shorter tracks turn quicker
     steerMax: (0.42 + s.handling * 0.12 + (137 - trackLengthIn) * 0.0012) * (1 + sk('steerPct') / 100),
+    rails,
     handling: s.handling,
     hardGrip: s.hardGrip * (1 + sk('hardGripPct') / 100),
     studGrip: e.studGrip,
     skiBite: (1 + e.skiBitePct / 100) * (1 + sk('skiBitePct') / 100),
     tractiveMult: (1 + e.tractivePct / 100) * (1 + gear * 0.6),
-    roughAbsorb: Math.min(0.92, e.roughAbsorb + sk('roughAbsorb')),
+    roughAbsorb: Math.min(0.92, e.roughAbsorb + sk('roughAbsorb') + rails * 0.55),
     durability: Math.min(1, Math.max(0.3, s.durability + e.durabilityAdd)),
     dragArea: s.dragArea,
     springZetaFront: 0.32,
     springZetaRear: 0.38,
     airSkill: 1 + sk('airPct') / 100,
-    landingImpactMult: 1 + sk('impactPct') / 100,
-    landingAlignRelax: sk('alignRelax'),
-    crashKeepAdd: sk('crashKeep'),
+    landingImpactMult: (1 + sk('impactPct') / 100) * (1 + rails * 0.8),
+    landingAlignRelax: sk('alignRelax') + rails * 0.12,
+    crashKeepAdd: sk('crashKeep') + rails * 0.2,
   };
 }
 
@@ -243,20 +273,27 @@ export interface StatLine { key: string; label: string; value: string; bar: numb
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
+/** Bar fill that spends the first `knee` fraction on 0..lo and the rest on lo..hi (so tier 6 fits without squashing the rest). */
+const kneeBar = (v: number, lo: number, hi: number, knee = 0.7) => (v <= lo ? clamp01((v / lo) * knee) : clamp01(knee + (1 - knee) * ((v - lo) / (hi - lo))));
+
 /** The ten headline stats, each with a display value and a 0..1 bar. Computed from derived params. */
 export function displayStats(setup: SledSetup): StatLine[] {
   const p = deriveParams({ ...setup, cargoMass: 0 });
   const hp = (p.powerW / 745.7);
   const kmh = p.topSpeed * 3.6;
+  const grip = Math.round(p.handling * p.skiBite * p.hardGrip * 100);
   return [
-    { key: 'power', label: 'Power', value: `${Math.round(hp)} hp`, bar: clamp01(hp / 300) },
-    { key: 'top', label: 'Top speed', value: `${Math.round(kmh)} km/h`, bar: clamp01((kmh - 90) / 110) },
+    { key: 'power', label: 'Power', value: `${Math.round(hp)} hp`, bar: kneeBar(hp, 300, 1000) },
+    { key: 'top', label: 'Top speed', value: `${Math.round(kmh)} km/h`, bar: kneeBar(kmh - 90, 110, 220) },
     { key: 'weight', label: 'Weight', value: `${Math.round(p.dryMass)} kg`, bar: clamp01((300 - p.dryMass) / 120) },
     { key: 'track', label: 'Track length', value: `${Math.round(p.trackLengthIn)} in`, bar: clamp01((p.trackLengthIn - 110) / 75) },
     { key: 'lugs', label: 'Lug height', value: `${p.lugHeightIn.toFixed(2)} in`, bar: clamp01((p.lugHeightIn - 0.8) / 2.4) },
     { key: 'travel', label: 'Suspension', value: `${Math.round((p.travelFront + p.travelRear) * 100)} cm · ${p.springMult.toFixed(2)}×`, bar: clamp01((p.travelFront + p.travelRear - 0.4) / 0.45 * 0.7 + (p.dampMult - 0.8) * 0.5) },
     { key: 'stance', label: 'Ski stance', value: `${Math.round(p.stance * 100)} cm`, bar: clamp01((p.stance - 0.9) / 0.25) },
-    { key: 'handling', label: 'Handling', value: `${Math.round(p.handling * p.skiBite * p.hardGrip * 100)}`, bar: clamp01(p.handling * (0.6 + 0.4 * p.skiBite) * (0.7 + 0.3 * p.hardGrip) + p.studGrip * 0.3) },
+    {
+      key: 'handling', label: 'Handling', value: p.rails > 0 ? `${grip} · on rails` : `${grip}`,
+      bar: clamp01(p.handling * (0.6 + 0.4 * p.skiBite) * (0.7 + 0.3 * p.hardGrip) + p.studGrip * 0.3 + p.rails),
+    },
     { key: 'flotation', label: 'Flotation', value: `${p.flotation.toFixed(2)}×`, bar: clamp01((p.flotation * p.powderTraction - 0.6) / 1.6) },
     { key: 'durability', label: 'Durability', value: `${Math.round(p.durability * 100)}`, bar: clamp01(p.durability) },
   ];

@@ -2,10 +2,13 @@ import * as THREE from 'three';
 import type { Game } from './Game';
 import type { CargoType } from '../vehicles/Cargo';
 import { RouteFollower, FollowOptions } from '../modes/ai/RouteFollower';
+import { SecretCode } from './SecretCode';
 
 /**
  * Console helpers for tuning: `__dev.startTrail('loop', 'full')`, `__dev.drive(10, 60)`.
  * Drives with a simple trail-following autopilot through the deterministic simulate() path.
+ * Also owns the secret developer unlock: `UNLOCK_CODE` anywhere in the game, or `__dev.unlockAll()`, and the
+ * `GRANT_KEY` (backtick) hotkey, or `__dev.grantFullSled()`, that grants the top sled fully built.
  */
 export class DevTools {
   log: string[] = [];
@@ -13,6 +16,67 @@ export class DevTools {
   private trail = 'loop';
 
   constructor(private game: Game) {}
+
+  /** Konami code: ↑ ↑ ↓ ↓ ← → ← → B A. Works on the title, in menus and the garage, and mid-ride. */
+  static readonly UNLOCK_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+
+  /** Backtick (`): grant the top sled fully built, and the Turbo Build below it with its parts free (see grantFullSled). */
+  static readonly GRANT_KEY = 'Backquote';
+
+  /** Start listening for UNLOCK_CODE and GRANT_KEY (the UI must exist). Key-rebinding is left alone. */
+  armSecretCode() {
+    new SecretCode(DevTools.UNLOCK_CODE, () => this.unlockAll(), { enabled: () => !this.game.settings.visible });
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== DevTools.GRANT_KEY || e.repeat || e.ctrlKey || e.metaKey || e.altKey || this.game.settings.visible) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      this.grantFullSled();
+    });
+  }
+
+  /** Open everything at once (sleds, parts, paint, trailer upgrades, modes, jobs, skills, cash) and say so on screen. */
+  unlockAll() {
+    const g = this.game;
+    g.progression.unlockEverything();
+    g.menu.refresh();
+    g.garage.refresh();
+    g.audioCue('finish');
+    this.banner('Dev unlock', 'Every sled, part, paint, mode and skill is open');
+  }
+
+  /**
+   * Grant the top sled fully built (and ride it where that is safe: menu, garage, Freeride) plus the sled below it,
+   * with every part that fits either one owned, so the top sled's engine can be swapped into the lower one from the
+   * garage (Engine › Engine Swap, then the tier-5 engine parts). Free, and the progress gates stay as they were.
+   */
+  grantFullSled() {
+    const g = this.game;
+    const ride = g.canRebuildPlayerNow();
+    const { top, below } = g.progression.grantTopSled(ride);
+    if (ride) g.rebuildPlayerNow();
+    g.menu.refresh();
+    g.garage.refresh();
+    g.audioCue('finish');
+    this.banner(
+      `${top.model} granted`,
+      ride
+        ? `Fully built and ready${below ? ` · swap its engine into the ${below.model} in the Garage` : ''}`
+        : 'Fully built · pick it in the Garage after this run',
+    );
+  }
+
+  private banner(titleText: string, subText: string) {
+    document.querySelector('.dev-banner')?.remove();
+    const el = document.createElement('div');
+    el.className = 'dev-banner';
+    const title = document.createElement('b');
+    title.textContent = titleText;
+    const sub = document.createElement('span');
+    sub.textContent = subText;
+    el.append(title, sub);
+    document.body.append(el);
+    setTimeout(() => el.remove(), 3400);
+  }
 
   static readonly LOADS: Record<string, CargoType[] | null> = {
     none: null,

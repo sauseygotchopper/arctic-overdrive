@@ -5,6 +5,7 @@
       "id": "engine",
       "name": "Engine",
       "slots": [
+        "swap",
         "intake",
         "exhaust",
         "ecu",
@@ -58,6 +59,7 @@
     }
   ],
   "slotNames": {
+    "swap": "Engine Swap",
     "intake": "Intake",
     "exhaust": "Exhaust",
     "ecu": "ECU Tune",
@@ -73,6 +75,19 @@
     "hitch": "Tow Hitch"
   },
   "parts": [
+    {
+      "id": "swap-cheat",
+      "slot": "swap",
+      "name": "Cheat-Sled Engine Swap",
+      "desc": "Drops the Ultimate Cheat Sled's 350 hp twin-turbo engine and gearing into this chassis: its power, rev range and top speed, a little heavier. Stack the tier-5 engine parts on top for 967 hp. The chassis keeps its own handling.",
+      "price": 32000,
+      "tier": 5,
+      "engineFrom": "overdrive-ultimate-cheat",
+      "effects": {
+        "weightKg": 14,
+        "durabilityAdd": -0.05
+      }
+    },
     {
       "id": "intake-1",
       "slot": "intake",
@@ -93,6 +108,17 @@
       "tier": 2,
       "effects": {
         "powerPct": 8
+      }
+    },
+    {
+      "id": "intake-3",
+      "slot": "intake",
+      "name": "Plasma Ram Plenum",
+      "desc": "Twin ducted plenums feeding the hyper-turbos. +22% power. Fits the Turbo Build and the Ultimate Cheat Sled.",
+      "price": 9500,
+      "tier": 5,
+      "effects": {
+        "powerPct": 22
       }
     },
     {
@@ -121,6 +147,19 @@
       }
     },
     {
+      "id": "exhaust-3",
+      "slot": "exhaust",
+      "name": "Titanium Resonance Headers",
+      "desc": "Equal-length titanium headers that scream to the limiter. +28% power. Fits the Turbo Build and the Ultimate Cheat Sled.",
+      "price": 11000,
+      "tier": 5,
+      "effects": {
+        "powerPct": 28,
+        "peakRpmAdd": 250,
+        "maxRpmAdd": 250
+      }
+    },
+    {
       "id": "ecu-1",
       "slot": "ecu",
       "name": "Street Map",
@@ -145,6 +184,19 @@
       }
     },
     {
+      "id": "ecu-3",
+      "slot": "ecu",
+      "name": "Neural Cheat Map",
+      "desc": "Self-learning timing that finds power the engineers swore wasn't there. +30% power. Fits the Turbo Build and the Ultimate Cheat Sled.",
+      "price": 13500,
+      "tier": 5,
+      "effects": {
+        "powerPct": 30,
+        "maxRpmAdd": 300,
+        "durabilityAdd": -0.03
+      }
+    },
+    {
       "id": "turbo-1",
       "slot": "turbo",
       "name": "Boost Kit 7 psi",
@@ -161,7 +213,7 @@
       "id": "turbo-2",
       "slot": "turbo",
       "name": "Boost Kit 11 psi",
-      "desc": "Full boost with upgraded internals. Turbo Build only.",
+      "desc": "Full boost with upgraded internals. Tier 5+ sleds only.",
       "price": 12500,
       "tier": 5,
       "effects": {
@@ -169,6 +221,20 @@
         "weightKg": 15,
         "topSpeedPct": 10,
         "durabilityAdd": -0.05
+      }
+    },
+    {
+      "id": "turbo-3",
+      "slot": "turbo",
+      "name": "Twin Hyper-Turbo 40 psi",
+      "desc": "Two ball-bearing hyper-turbos and a water-methanol injection loop. +96% power. Fits the Turbo Build and the Ultimate Cheat Sled.",
+      "price": 28000,
+      "tier": 5,
+      "effects": {
+        "powerPct": 96,
+        "weightKg": 20,
+        "topSpeedPct": 14,
+        "durabilityAdd": -0.06
       }
     },
     {
@@ -205,6 +271,18 @@
       "effects": {
         "tractivePct": 9,
         "topSpeedPct": 4
+      }
+    },
+    {
+      "id": "clutch-cheat",
+      "slot": "clutch",
+      "name": "Gyro Torque Converter",
+      "desc": "Seamless torque-vectoring gearing: launches harder and pulls a taller top end. Fits the Turbo Build and the Ultimate Cheat Sled.",
+      "price": 9000,
+      "tier": 5,
+      "effects": {
+        "tractivePct": 14,
+        "topSpeedPct": 8
       }
     },
     {

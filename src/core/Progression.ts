@@ -1,10 +1,15 @@
 import { SaveData, newSledSave } from './SaveSystem';
-import { SLEDS, SledSpec, SledSetup, getSled, getPart, partFits, COSMETICS, RIDER_MASS, Livery, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
+import { SLEDS, PARTS, SledSpec, SledSetup, getSled, getPart, partFits, partMisfit, COSMETICS, RIDER_MASS, Livery, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
 import { MAPS } from '../world/Maps';
 import skillsData from '../data/skills.json';
 
 export const SKILLS = skillsData.skills;
+
+/** Wallet floor set by the developer unlock. */
+const DEV_CASH = 10_000_000;
+/** Every level of every skill. */
+const ALL_SKILL_POINTS = SKILLS.reduce((a, sk) => a + sk.cost.slice(0, sk.maxLevel).reduce((x, y) => x + y, 0), 0);
 
 export interface Requirement { label: string; have: number; need: number }
 
@@ -20,6 +25,70 @@ export class Progression {
   constructor(private save: SaveData, private onChange: () => void) {}
 
   private get d() { return this.save; }
+
+  /** True once the developer unlock code has been entered (see unlockEverything). */
+  get devUnlock() { return this.d.devUnlock; }
+
+  /** Sled tier that gates delivery jobs, snocross events and special contracts (all open with the developer unlock). */
+  accessTier(): number {
+    return this.d.devUnlock ? Infinity : getSled(this.d.currentSled).tier;
+  }
+
+  /**
+   * Developer unlock: own every sled, every part that fits it, every paint/wrap/gear it can wear and every trailer
+   * upgrade; top up the wallet; open the sled, mode and contract gates; skip the tutorial; and make every skill level
+   * affordable. Nothing is fitted or spent, so the current sled and loadout stay as they were (trailer jobs still need
+   * a hitch fitted: that is loadout, not progress). Safe to repeat.
+   */
+  unlockEverything() {
+    const d = this.d;
+    d.devUnlock = true;
+    d.tutorialDone = true;
+    d.currency = Math.max(d.currency, DEV_CASH);
+    const cosmetics: [string, { id: string; price: number; minTier?: number }[]][] = [['paint', COSMETICS.paints], ['wrap', COSMETICS.wraps], ['gear', COSMETICS.gear]];
+    for (const spec of SLEDS) {
+      if (!d.ownedSleds.includes(spec.id)) d.ownedSleds.push(spec.id);
+      const g = this.garage(spec.id);
+      for (const p of PARTS) if (partFits(p, spec) && !g.parts.includes(p.id)) g.parts.push(p.id);
+      for (const [kind, list] of cosmetics) {
+        for (const x of list) {
+          const key = `${kind}:${x.id}`;
+          if (x.price > 0 && !(x.minTier && spec.tier < x.minTier) && !g.cosmetics.includes(key)) g.cosmetics.push(key);
+        }
+      }
+    }
+    for (const [slot, items] of Object.entries(trailerData.upgrades) as [string, { id: string; price: number }[]][]) {
+      for (const x of items) {
+        const key = `${slot}:${x.id}`;
+        if (x.price > 0 && !d.trailer.ownedParts.includes(key)) d.trailer.ownedParts.push(key);
+      }
+    }
+    this.onChange();
+  }
+
+  /**
+   * Dev hotkey: own the top sled fully built (its `fullBuild` parts) and the sled one tier below it, and own every part
+   * that fits either, so the top sled's engine can be swapped into the lower one for free (Garage › Engine › Engine
+   * Swap). Costs nothing and leaves the progress gates alone. `ride` also makes the top sled the current one. Safe to repeat.
+   */
+  grantTopSled(ride: boolean): { top: SledSpec; below: SledSpec | null } {
+    const top = SLEDS.reduce((a, b) => (b.tier > a.tier ? b : a));
+    const below = SLEDS.find((s) => s.tier === top.tier - 1) ?? null;
+    for (const spec of [top, below]) {
+      if (!spec) continue;
+      if (!this.owns(spec.id)) this.d.ownedSleds.push(spec.id);
+      const g = this.garage(spec.id);
+      for (const p of PARTS) if (partFits(p, spec) && !g.parts.includes(p.id)) g.parts.push(p.id);
+    }
+    const g = this.garage(top.id);
+    for (const id of top.fullBuild ?? []) {
+      const p = getPart(id);
+      if (p && partFits(p, top)) g.installed[p.slot] = id;
+    }
+    if (ride) this.d.currentSled = top.id;
+    this.onChange();
+    return { top, below };
+  }
 
   counts() {
     const medals = Object.values(this.d.timeTrials).flatMap((r) => r.medals);
@@ -37,6 +106,7 @@ export class Progression {
 
   /** Progress gates for buying a sled (price is checked separately). */
   requirements(spec: SledSpec): Requirement[] {
+    if (this.d.devUnlock) return [];
     const c = this.counts();
     const u = spec.unlock;
     const out: Requirement[] = [];
@@ -80,7 +150,8 @@ export class Progression {
 
   /** Points earned so far: startPoints plus pointsPerLevel per rider level past 1. */
   skillPointsEarned(): number {
-    return skillsData.startPoints + (riderLevel(this.d.xp).level - 1) * skillsData.pointsPerLevel;
+    const earned = skillsData.startPoints + (riderLevel(this.d.xp).level - 1) * skillsData.pointsPerLevel;
+    return this.d.devUnlock ? Math.max(earned, ALL_SKILL_POINTS) : earned;
   }
 
   skillPointsSpent(): number {
@@ -157,7 +228,7 @@ export class Progression {
     const p = getPart(partId);
     const spec = getSled(sledId);
     if (!p) return 'Unknown part';
-    if (!partFits(p, spec)) return `Needs a tier ${p.tier}+ sled`;
+    if (!partFits(p, spec)) return partMisfit(p, spec);
     const g = this.garage(sledId);
     if (!g.parts.includes(partId)) {
       if (!this.spend(p.price)) return 'Not enough cash';

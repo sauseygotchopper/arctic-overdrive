@@ -25,6 +25,10 @@
     "rollTargetRad": 0.38,
     "_doc": "Side lean steers the sled by itself in soft snow (leanSteerPowder rad of equivalent steer) and adds ski bite when leaning into a turn; forward lean loads the skis (more steering, more nose-dig in powder), back lean adds track traction and lifts the nose"
   },
+  "treeAssist": {
+    "_doc": "Arcade handling only: tree dodge for the ridden sled (trunks also get frictionless bark): trunks within clearance m of the path covered in the next lookSeconds (max maxLook m) get a sideways nudge of up to maxAccel m/s², plus a little yaw (yawPerDv) so it reads as a swerve.",
+    "minSpeed": 4, "lookSeconds": 0.6, "maxLook": 20, "clearance": 1.2, "maxAccel": 14, "yawPerDv": 0.25
+  },
   "assist": {
     "yawAssist": 3.5,
     "rollStiffness": 12,
@@ -37,5 +41,26 @@
     "crawlFactor": 0.08,
     "digPerSlip": 0.45,
     "_doc": "Snow drag fades toward crawlFactor near standstill so an overloaded sled bogs down and crawls instead of stopping dead; wheelspin in soft snow digs the track in by digPerSlip × sinkDepth"
+  },
+  "rails": {
+    "tractionFloor": 2.4,
+    "launchBoost": 0.7,
+    "brakeBoost": 1.0,
+    "latGripMult": 4.5,
+    "latGripFloor": 4.5,
+    "trackLatScale": 0.3,
+    "peakTighten": 0.6,
+    "turnG": 6.5,
+    "maxYawRate": 2.4,
+    "yawAssistBoost": 3.0,
+    "highSpeedSteer": 0.06,
+    "steerResponse": 1.0,
+    "guideRate": 7,
+    "rollBoost": 1.5,
+    "pitchStiffness": 30,
+    "pitchDamping": 7,
+    "landingBoost": 1.2,
+    "speedCapBoost": 1.0,
+    "_doc": "Applied in proportion to a sled's 'rails' value (sleds.json, 0..1). tractionFloor: track grip coefficient it can never drop below, on any surface (also removes wheelspin, so no trenching); launchBoost: extra thrust cap as a fraction of weight; brakeBoost: extra braking; latGripMult/latGripFloor: sideways grip multiplier and minimum coefficient; trackLatScale: share of that sideways grip the track keeps (low = the tail rotates freely and the guide holds the path); peakTighten: how much sooner grip builds with slip angle (and it never slides off the peak); turnG: the fixed lateral g (any surface) that caps the turn rate; maxYawRate: rad/s ceiling on it at low speed (rails steer by rate command: full lock = that turn rate, half lock = half); yawAssistBoost: stronger steering assist; highSpeedSteer: extra steering lock kept at speed; steerResponse: faster steering input; guideRate: 1/s at which sideways velocity is bled off so the sled follows its nose; rollBoost/pitchStiffness/pitchDamping: self-levelling on the ground; landingBoost: stronger landing assist in the air; speedCapBoost: how far the surface speed cap is lifted."
   }
 }

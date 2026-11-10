@@ -77,6 +77,8 @@ export class SledPhysics {
   towMass = 0;
   /** Scales air-control torque (towing limits what the rider can do). */
   airControlScale = 1;
+  /** Rotation (rad) about each sled axis since leaving the ground: full turns earn a small spin-rate bonus. */
+  private airRot = { pitch: 0, yaw: 0, roll: 0 };
   /** Seconds left of a crash: no throttle, rider recovering. */
   crashTimer = 0;
   /**
@@ -227,6 +229,9 @@ export class SledPhysics {
     const body = this.body;
     const h = handling();
     const G = this.phys.g;
+    // 'rails' sleds (sleds.json) are glued to the snow: see handling.json 'rails' for what each knob does
+    const R = H.rails;
+    const rails = p.rails;
     this.readState();
 
     // ---- input smoothing ----
@@ -235,7 +240,7 @@ export class SledPhysics {
       input = { ...input, throttle: 0 };
     }
     this.throttleS += (input.throttle - this.throttleS) * Math.min(1, dt * 7);
-    this.steerS += (input.steer - this.steerS) * Math.min(1, dt * 9);
+    this.steerS += (input.steer - this.steerS) * Math.min(1, dt * 9 * (1 + rails * R.steerResponse));
     const lx = this.leanXS, lz = this.leanZS;
     this.leanXS += (input.leanX - this.leanXS) * Math.min(1, dt * 6);
     this.leanZS += (input.leanZ - this.leanZS) * Math.min(1, dt * 6);
@@ -249,7 +254,7 @@ export class SledPhysics {
     const vLongBody = this.velocity.dot(this.forward);
     this.speed = vLongBody;
     const absV = Math.abs(vLongBody);
-    const steerMax = lerp(p.steerMax, 0.12, smoothstep(0, 32, absV));
+    const steerMax = lerp(p.steerMax, 0.12 + rails * R.highSpeedSteer, smoothstep(0, 32, absV));
     this.steerAngle = this.steerS * steerMax;
 
     // ---- trenching ----
@@ -262,7 +267,7 @@ export class SledPhysics {
     const dig = soft * spin * smoothstep(7, 1.5, absV) * 0.32;
     const rock = Math.min(6, (Math.abs(this.leanXS - lx) + Math.abs(this.leanZS - lz)) / dt);
     const climb = absV * 0.05 + rock * 0.035 + (this.throttleS < 0.5 ? 0.08 : 0) + (this.reversing ? 0.06 : 0) + (1 - soft) * 0.6;
-    this.trench = h.bogging ? clamp(this.trench + (dig - climb) * dt, 0, 0.32) : 0;
+    this.trench = h.bogging ? clamp(this.trench + (dig - climb) * dt, 0, 0.32 * (1 - rails)) : 0;
 
     // ---- suspension rays ----
     const world = this.phys.world;
@@ -364,6 +369,7 @@ export class SledPhysics {
         this.landingImpact = Math.max(0, -this.velocity.y);
       }
       this.airTime = 0;
+      this.airRot.pitch = this.airRot.yaw = this.airRot.roll = 0;
     }
     this.groundedCount = grounded;
 
@@ -400,7 +406,7 @@ export class SledPhysics {
     const engage = h.cvtDrivetrain && !this.clutch ? 0 : smoothstep(p.engageRpm - 400, p.engageRpm + 500, this.rpm);
     let driveF = (thr * p.powerW * curve * engage) / Math.max(absV, 3);
     // launch pull is limited by gearing (scales with engine output) and by the sled's weight on the track
-    driveF = Math.min(driveF * (absV < 12 ? p.tractiveMult : 1), (p.powerW / 33) * p.tractiveMult, p.mass * G * p.tractiveMult);
+    driveF = Math.min(driveF * (absV < 12 ? p.tractiveMult : 1), (p.powerW / 33) * p.tractiveMult, p.mass * G * p.tractiveMult * (1 + (rails * R.launchBoost * p.mass) / (p.mass + this.towMass * 1.6)));
     const vTop = this.reversing ? 6 : p.topSpeed;
     driveF *= clamp((vTop - absV) / (vTop * 0.05), 0, 1);
     if (this.reversing) driveF *= -0.35;
@@ -434,9 +440,10 @@ export class SledPhysics {
       // apply forces at the contact's fore/aft position (so the rear resists yaw with its full lever arm)
       // but lifted toward the centre of mass so the sled doesn't trip over itself
       let ap: THREE.Vector3;
-      if (h.fullLeverArm) {
+      if (h.fullLeverArm || rails > 0) {
         const lift = (this.position.x - pt.x) * this.up.x + (this.position.y - pt.y) * this.up.y + (this.position.z - pt.z) * this.up.z;
-        ap = _v.copy(pt).addScaledVector(this.up, lift * 0.55);
+        // rails: grip acts at centre-of-mass height, so even huge grip can't roll the sled over or pitch it up under power
+        ap = _v.copy(pt).addScaledVector(this.up, lift * lerp(0.55, 1, rails));
       } else ap = _v.copy(pt).lerp(this.position, 0.55);
 
       // ---- longitudinal first (track), so the friction circle knows what's left for cornering ----
@@ -446,12 +453,15 @@ export class SledPhysics {
       const icy = s.grip < 0.8 && hard; // ice and wind crust
       let mu = s.grip * lerp(1, p.powderTraction, softness) * (c.isSki ? 1 : 1 + H.lean.backTraction * -this.leanZS);
       if (!c.isSki && icy) mu += p.studGrip;
+      // rails: the lugs bite like it's groomed whatever the surface is
+      if (!c.isSki && rails > 0) mu = lerp(mu, Math.max(mu, R.tractionFloor), rails);
       if (!c.isSki) {
         const share = trackLoad > 0 ? N / trackLoad : 0;
         const cap = mu * N * (1 - 0.6 * this.bog); // a belly-pan-supported track has less to push with
         const want = driveF * share;
         const applied = clamp(want, -cap, cap);
-        c.slip = cap > 0 ? clamp((Math.abs(want) - cap) / cap, 0, 1) : 1;
+        // rails also meter the drive to what the snow can hold (traction control): the track never spins, so it never trenches
+        c.slip = cap > 0 ? clamp((Math.abs(want) - cap) / cap, 0, 1) * (1 - rails) : 1;
         slipSum += c.slip;
         longF += applied;
         longUsed += Math.abs(applied);
@@ -463,7 +473,7 @@ export class SledPhysics {
           longUsed += hold;
         }
         if (input.brake > 0 && !this.reversing) {
-          const bF = Math.min(input.brake * p.mass * 7 * share, mu * N);
+          const bF = Math.min(input.brake * p.mass * 7 * (1 + rails * R.brakeBoost) * share, mu * N);
           const bApplied = Math.min(bF, (Math.abs(vLong) * mEff) / dt);
           longF -= Math.sign(vLong) * bApplied;
           longUsed += bApplied;
@@ -487,18 +497,30 @@ export class SledPhysics {
         latMu *= leanInto >= 0 ? 1 + leanInto * H.lean.carveGrip : 1 + leanInto * H.lean.counterLeanPenalty;
         latMu *= 1 + H.lean.forwardSkiGrip * this.leanZS; // weight on the skis = more bite
       }
+      // rails: sideways grip that ignores the surface (ice included), builds almost instantly and never lets go
+      if (rails > 0) latMu = lerp(latMu, Math.max(latMu * R.latGripMult, R.latGripFloor), rails);
       let latCap = latMu * N;
+      // ...but the tracks let the tail rotate freely: the guide below holds the path, so they don't fight the turn
+      if (!c.isSki && rails > 0) latCap *= lerp(1, R.trackLatScale, rails);
       // a spinning track can't hold sideways as well (power slides on hardpack, not in powder)
       if (!c.isSki && h.snowKeel) latCap *= 1 - 0.45 * c.slip * (1 - softness);
       const slipAngle = Math.atan2(Math.abs(vLat), Math.max(Math.abs(vLong), 1));
-      const peak = THREE.MathUtils.degToRad(c.isSki ? H.slip.skiPeakDeg : H.slip.trackPeakDeg);
-      const curve = slipAngle < peak ? slipAngle / peak : lerp(1, H.slip.slideRatio, smoothstep(peak, peak * 3, slipAngle));
+      const peak = THREE.MathUtils.degToRad(c.isSki ? H.slip.skiPeakDeg : H.slip.trackPeakDeg) * (1 - R.peakTighten * rails);
+      const curve = slipAngle < peak ? slipAngle / peak : lerp(1, lerp(H.slip.slideRatio, 1, rails), smoothstep(peak, peak * 3, slipAngle));
       const k = Math.abs(vLat) < H.slip.lowSpeedGrip && Math.abs(vLong) < 3 ? 1 : curve;
       const latJ = -Math.sign(vLat) * Math.min(Math.abs(vLat) * mEff, latCap * k * dt);
       if (!c.isSki) c.slip = Math.max(c.slip, smoothstep(peak, peak * 3, slipAngle) * 0.6); // sideways slide sprays too
       body.applyImpulseAtPoint(scale(_r, latJ), ap, true);
     }
     this.trackSlip = trackGrounded > 0 ? slipSum / trackGrounded : 1;
+
+    // rails: the sled follows its nose. Sideways velocity is bled off whatever the snow does (no drifting,
+    // no skating across ice), so a turn is the direction the skis point, like it's on a track
+    if (rails > 0 && grounded >= 2) {
+      const lv = body.linvel();
+      const side = lv.x * this.right.x + lv.y * this.right.y + lv.z * this.right.z;
+      body.applyImpulse(scale(this.right, -side * p.mass * (1 - Math.exp(-dt * R.guideRate * rails))), true);
+    }
 
     // belly pan dragging on the snow when high-centred
     if (this.bog > 0.01) {
@@ -518,7 +540,7 @@ export class SledPhysics {
     if (vMag > 0.1) {
       let drag = 0.5 * 1.2 * p.dragArea * vMag * vMag;
       if (grounded > 0) {
-        const cap = surfCap / grounded / 3.6;
+        const cap = (surfCap / grounded / 3.6) * (1 + rails * R.speedCapBoost);
         if (vMag > cap) drag += p.mass * (vMag - cap) * 0.9;
       }
       body.applyImpulse(scale(this.velocity, (-drag / vMag) * dt), true);
@@ -538,34 +560,67 @@ export class SledPhysics {
       // acceleration, and it can't exceed grip × g (asking for more spun the back end round)
       const skiKeel = (smoothstep(0.02, 0.12, this.contacts[0].sink) + smoothstep(0.02, 0.12, this.contacts[1].sink)) * 0.5;
       const carve = clamp(this.leanXS * Math.sign(this.steerS || 1), 0, 1);
-      const latG = (frontGrip + skiKeel * 0.4) * (0.85 + p.handling * 0.35) * (1 + carve * 0.3) * G;
+      let latG = (frontGrip + skiKeel * 0.4) * (0.85 + p.handling * 0.35) * (1 + carve * 0.3) * G;
+      // rails: the turn-rate limit is a fixed lateral g whatever the surface (ice included), not what the snow could hold
+      if (rails > 0) latG = lerp(latG, R.turnG * G, rails);
       const yawLimit = latG / Math.max(absV, 2);
       const yawWanted = (-vLongBody * Math.tan(clamp(this.steerAngle + leanSteer, -0.7, 0.7))) / 1.6;
-      const desiredYaw = h.gripLimitedTurns ? clamp(yawWanted, -yawLimit, yawLimit) : yawWanted;
-      const yawNow = angVel.dot(this.up);
+      // a rails sled is always grip-limited: it follows the steering as far as its (huge) grip allows, even in arcade mode
+      let desiredYaw = h.gripLimitedTurns || rails > 0 ? clamp(yawWanted, -yawLimit, yawLimit) : yawWanted;
       const towK = p.mass / (p.mass + this.towMass * 1.6); // a trailer resists rotation: wider turns
-      const yawT = (desiredYaw - yawNow) * I * H.assist.yawAssist * towK * clamp(frontGrip * 1.3, 0.15, 1) * smoothstep(0.5, 4, absV);
+      if (rails > 0) {
+        // rails steer by rate command: full lock is the fixed-g turn rate, half lock half of it (the bicycle formula
+        // above would hit the limit at a few % of lock at speed). Capped at crawl speed so it can't pirouette on the spot,
+        // and by the towed load so a trailer isn't whipped round.
+        const lock = clamp(this.steerS + leanSteer / Math.max(0.15, steerMax), -1, 1);
+        const cap = Math.min(yawLimit, R.maxYawRate, 0.6 + 0.6 * absV) * towK;
+        desiredYaw = lerp(desiredYaw, -lock * cap * (vLongBody < 0 ? -1 : 1), rails);
+      }
+      const yawNow = angVel.dot(this.up);
+      const yawT = (desiredYaw - yawNow) * I * H.assist.yawAssist * (1 + rails * R.yawAssistBoost) * towK * clamp(lerp(frontGrip, 1, rails) * 1.3, 0.15, 1) * smoothstep(0.5, 4, absV);
       // self-righting toward the ground normal, tilted by side lean (sidehilling / carving)
       _q.setFromAxisAngle(this.forward, -this.leanXS * H.lean.rollTargetRad);
       const desiredUp = _v.copy(nAvg).applyQuaternion(_q);
       const rightAxis = _v2.crossVectors(this.up, desiredUp);
       const rollAxisAmt = rightAxis.dot(this.forward);
       const rollRate = angVel.dot(this.forward);
-      const rollT = (rollAxisAmt * H.assist.rollStiffness - rollRate * H.assist.rollDamping) * I;
+      const rollK = 1 + rails * R.rollBoost;
+      const rollT = (rollAxisAmt * H.assist.rollStiffness * rollK - rollRate * H.assist.rollDamping * rollK) * I;
       const torque = new THREE.Vector3()
         .addScaledVector(this.up, yawT)
         .addScaledVector(this.forward, rollT);
+      if (rails > 0) {
+        // rails also level the nose with the slope, so hard launches and big braking never pitch the sled up or over
+        const pitchErr = rightAxis.dot(this.right);
+        const pitchRate = angVel.dot(this.right);
+        torque.addScaledVector(this.right, (pitchErr * R.pitchStiffness - pitchRate * R.pitchDamping) * I * rails);
+      }
       body.applyTorqueImpulse(scale(torque, dt), true);
     } else if (grounded === 0) {
       // In the air the rider rotates the sled with body English plus track gyro (throttle = nose up,
       // brake = nose down). Torques are fixed, so heavier setups rotate slower.
       const air = tricksData.air;
       const k = this.airControlScale * this.params.airSkill;
-      const pitchIn = -this.leanZS + (this.throttleS - input.brake) * air.gyroThrottle;
-      const t = new THREE.Vector3()
-        .addScaledVector(this.right, pitchIn * air.pitchTorque * k)
-        .addScaledVector(this.up, -this.steerS * air.yawTorque * k)
-        .addScaledVector(this.forward, this.leanXS * air.rollTorque * k);
+      const pitchIn = clamp(-this.leanZS + (this.throttleS - input.brake) * air.gyroThrottle, -1, 1);
+      const w0 = body.angvel();
+      const W = new THREE.Vector3(w0.x, w0.y, w0.z);
+      const rates = { pitch: W.dot(this.right), yaw: W.dot(this.up), roll: W.dot(this.forward) };
+      this.airRot.pitch += rates.pitch * dt;
+      this.airRot.yaw += rates.yaw * dt;
+      this.airRot.roll += rates.roll * dt;
+      // Inputs ask for a rotation *rate*, not a constant torque (a held torque kept spinning the sled up
+      // for the whole jump). The torque budget is fixed, so heavier setups take longer to get up to
+      // speed and top out a little slower; every full turn already done this jump adds a small bonus.
+      const massScale = clamp(Math.sqrt(air.refMass / p.mass), 0.75, 1.15) * this.params.airSkill;
+      const bonus = (turns: number) => 1 + Math.min(air.maxRotationBonus, air.perRotationBonus * Math.floor(Math.abs(turns) / (Math.PI * 2)));
+      const toward = (axis: THREE.Vector3, target: number, rate: number, torque: number, amount: number) => {
+        if (amount < 0.02) return;
+        t.addScaledVector(axis, clamp((target - rate) / air.rateResponse, -1, 1) * torque * this.airControlScale * amount);
+      };
+      const t = new THREE.Vector3();
+      toward(this.right, pitchIn * air.maxPitchRate * massScale * bonus(this.airRot.pitch), rates.pitch, air.pitchTorque, Math.abs(pitchIn));
+      toward(this.up, -this.steerS * air.maxYawRate * massScale * bonus(this.airRot.yaw), rates.yaw, air.yawTorque, Math.abs(this.steerS));
+      toward(this.forward, this.leanXS * air.maxRollRate * massScale * bonus(this.airRot.roll), rates.roll, air.rollTorque, Math.abs(this.leanXS));
       // a sled flies roughly nose-first: weak pitch alignment with the flight path, faded out
       // while the rider is pitching so flips aren't fought
       const vLen = this.velocity.length();
@@ -593,8 +648,9 @@ export class SledPhysics {
           axis.addScaledVector(this.up, -axis.dot(this.up)); // pitch/roll only, never yaw
           const w2 = new THREE.Vector3(body.angvel().x, body.angvel().y, body.angvel().z);
           w2.addScaledVector(this.up, -w2.dot(this.up));
-          t.addScaledVector(axis, H.assist.landingAssist * near * (1 - 0.7 * busy));
-          t.addScaledVector(w2, -H.assist.landingAssist * 0.18 * near * (1 - 0.7 * busy));
+          const landK = 1 + rails * R.landingBoost;
+          t.addScaledVector(axis, H.assist.landingAssist * landK * near * (1 - 0.7 * busy));
+          t.addScaledVector(w2, -H.assist.landingAssist * landK * 0.18 * near * (1 - 0.7 * busy));
         }
       }
       body.applyTorqueImpulse(scale(t, dt), true);

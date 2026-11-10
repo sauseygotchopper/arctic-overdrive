@@ -22,6 +22,7 @@ npm run build    # typecheck + production build
 | Hitch / unhitch trailer (Freeride) | H | D-pad left |
 | Cycle trailer test load | G | D-pad right |
 | Camera (chase / far / hood) | C | Back |
+| Minimap on / off | M | |
 | Recover (Time Trial: back to last checkpoint) | R | LB |
 | Pause (resume, restart, settings, quit) | Esc / P | Start |
 | Freeride: time of day / weather | T / Y | D-pad up / R3 |
@@ -72,7 +73,7 @@ open for 2 s so you can chain the next jump, a sketchy landing banks 75%, a cras
 Heavier setups pop lower and rotate slower (air torques are fixed, inertia comes from mass).
 
 ### Sleds, garage & progression
-Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
+Six sleds, one per tier; the first five are each modelled on a real class (`src/data/sleds.json`):
 
 | Tier | Sled | Class | Character |
 |---|---|---|---|
@@ -81,6 +82,28 @@ Five sleds, one per tier, each modelled on a real class (`src/data/sleds.json`):
 | 3 | Altamont Summit 165 | Mountain (165in x 3in lugs) | Floats in powder, narrow and twitchy on ice |
 | 4 | Kestrel SX-R 600 | Snocross race (121in) | Stiff long-travel suspension, best on jumps and tracks |
 | 5 | Overdrive Turbo Build | Custom turbo | Highest ceilings, turbo kits, exclusive liveries |
+| 6 | Overdrive Works Ultimate Cheat Sled | Ultimate / unfair | 350 hp stock, 967 hp with the engine parts; rides on rails |
+
+The Ultimate Cheat Sled sets `rails: 1` in `sleds.json`. That one value switches on, in `SledPhysics`
+(all knobs in the `rails` block of `src/data/handling.json`): traction control and a track grip that
+ignores the surface (no wheelspin, no trenching, same bite on ice and powder), sideways grip that
+builds almost instantly and never slides off its peak, a guide that bleeds sideways velocity so the
+sled goes where its nose points, proportional rate-command steering (full lock = a fixed 6.5 g turn
+rate, half lock = half of it), grip forces applied at centre-of-mass height so they can't roll or
+pitch it, a lifted surface speed cap, and self-levelling on the ground and in the air (no wheelies,
+stays flat off jumps; it can still tumble if it hits a tree). Its engine parts (Plasma Ram Plenum, Titanium Resonance Headers,
+Neural Cheat Map, Twin Hyper-Turbo) add +22 / +28 / +30 / +96 % power: 261 kW (350 hp) becomes 967 hp.
+Unlocks at 25,000 XP, 3 gold medals, 20 crystals, 10 deliveries and 5 snocross wins, $85,000.
+
+**Engine swap.** The cheat engine parts and the Gyro Torque Converter are tier 5, so they also fit the Turbo Build
+below it, and a **Cheat-Sled Engine Swap** part (Garage › Engine, $32,000) drops the Cheat Sled's whole engine
+(power, rev range, gearing, top speed; a part with `engineFrom` in `parts.json`) into the Turbo Build. A swapped
+Turbo Build with the four kits makes the same 967 hp and 287 km/h, but keeps its own chassis and handling (no rails).
+
+**Dev hotkey: backtick (`` ` ``).** Grants the Cheat Sled fully built (its `fullBuild` list in `sleds.json`) and the Turbo
+Build, with every part that fits either one owned, so the swap is free. It rides the new sled straight away in the menu,
+the garage and Freeride (carrying on from where the old sled was); in timed modes it only grants, and you pick it in the
+Garage after the run. The Konami code (↑ ↑ ↓ ↓ ← → ← → B A) still opens everything.
 
 A sled is bought with cash once its progress gates are met (own the tier below, XP, medals,
 crystals). Parts (`src/data/parts.json`) change real physics values through one function,

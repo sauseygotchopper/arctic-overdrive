@@ -1,5 +1,20 @@
 {
   "_doc": "Freeride points of interest. Collectible frost crystals are hidden around the valley; viewpoints are discovered by riding within r metres; trick spots reference jumps in world.json and multiply combos banked nearby.",
+  "_ranga": "The Angry Ranga lurks in Freeride. Ride within spotRange m and he gives chase on foot at runSpeed m/s (you hear him from hearRange); get beyond loseRange or outlast chaseSeconds and he gives up. Within catchRange he leaps onto the handlebars and squats there for squatSeconds, then sulks for cooldownSeconds before turning up somewhere new, firstDistance m from the start the first time and respawnDistance m from you after that.",
+  "ranga": {
+    "scale": 1.1,
+    "spotRange": 42,
+    "hearRange": 95,
+    "runSpeed": 15,
+    "catchRange": 2.8,
+    "loseRange": 140,
+    "chaseSeconds": 45,
+    "squatSeconds": 10,
+    "squatsPerSecond": 0.7,
+    "cooldownSeconds": 25,
+    "firstDistance": [75, 110],
+    "respawnDistance": [150, 260]
+  },
   "collectibles": [
     {
       "id": "crystal-01",
