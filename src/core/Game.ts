@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import worldDef from '../data/world.json';
 import { initRapier, PhysicsWorld, PHYSICS_DT } from '../physics/PhysicsWorld';
-import { TerrainData, WorldDef } from '../world/TerrainData';
+import { TerrainData } from '../world/TerrainData';
+import { HOME_MAP, getMap, setPendingStart, takePendingStart, PendingStart } from '../world/Maps';
 import { TerrainMesh } from '../world/TerrainMesh';
 import { Scenery } from '../world/Scenery';
-import { Jumps, JumpDef } from '../world/Jumps';
+import { Jumps } from '../world/Jumps';
 import { SkySystem, TimeOfDay, Weather, WEATHER_FX } from '../world/Sky';
 import { Effects } from '../world/Effects';
 import { SnowDeformation, DEFORM_DEPTH } from '../world/SnowDeformation';
@@ -78,6 +78,10 @@ export class Game {
   readonly routes = new Map<string, Route>();
   readonly dev = new DevTools(this);
   mode: GameMode | null = null;
+  /** Set when this page load is a map switch: what to start once the world is built. */
+  private pending: PendingStart | null = takePendingStart();
+  /** The world this page load built. Races and deliveries only exist on the home map. */
+  readonly map = getMap(this.pending?.map);
   /** Audio hook – the audio engine (Phase 7) fills this in. */
   audioCue = (name: string) => this.audio.cue(name);
   private state: 'menu' | 'playing' | 'garage' = 'menu';
@@ -129,9 +133,10 @@ export class Game {
     this.renderer.shadowMap.type = g.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
-    await step('Shaping the valley…', 0.15);
-    this.terrain = new TerrainData(worldDef as unknown as WorldDef, COURSES.flatMap((c) => corridorsOf(c.route as RouteStep[])));
-    for (const c of COURSES) this.routes.set(c.id, new Route(this.terrain, c.route as RouteStep[]));
+    await step(this.map === HOME_MAP ? 'Shaping the valley…' : `Shaping ${this.map.name}…`, 0.15);
+    const courses = this.map === HOME_MAP ? COURSES : [];
+    this.terrain = new TerrainData(this.map.world, courses.flatMap((c) => corridorsOf(c.route as RouteStep[])));
+    for (const c of courses) this.routes.set(c.id, new Route(this.terrain, c.route as RouteStep[]));
     await step('Laying down snow…', 0.45);
     this.terrainMesh = new TerrainMesh(this.terrain, g.terrainTex, g.sparkle);
     this.scene.add(this.terrainMesh.group);
@@ -163,13 +168,15 @@ export class Game {
     });
     this.scene.add(this.scenery.group);
     this.physics.addStatic(this.scenery.colliders);
-    this.jumps = new Jumps(this.terrain, (worldDef as unknown as { jumps: JumpDef[] }).jumps);
+    this.jumps = new Jumps(this.terrain, this.map.jumps);
     this.scene.add(this.jumps.group);
     for (const c of this.jumps.colliders) this.physics.addTrimesh(c.vertices, c.indices);
-    const venue = this.terrain.def.venues!.find((v) => v.id === snocrossData.venue)!;
-    this.track = new SnocrossTrack(this.terrain, venue, snocrossData.trackWidth);
-    this.scene.add(this.track.group);
-    this.physics.addTrimesh(this.track.vertices, this.track.indices);
+    const venue = (this.terrain.def.venues ?? []).find((v) => v.id === snocrossData.venue);
+    if (venue) {
+      this.track = new SnocrossTrack(this.terrain, venue, snocrossData.trackWidth);
+      this.scene.add(this.track.group);
+      this.physics.addTrimesh(this.track.vertices, this.track.indices);
+    }
 
     await step('Fuelling up…', 0.9);
     this.sky = new SkySystem(this.scene, this.renderer, g.shadowSize, g.softShadows);
@@ -256,7 +263,7 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     this.resize();
     Object.assign(window, { __game: this, __dev: this.dev });
-    this.toMenu();
+    this.toMenu(this.pending?.view as Parameters<Game['toMenu']>[0]);
     await step('Ready', 1);
   }
 
@@ -321,7 +328,20 @@ export class Game {
 
   // ---------- modes / menu ----------
 
+  /**
+   * Load another map: the world is built once per page load, so this saves and reloads, and `then`
+   * says what to start when the new world is ready.
+   */
+  switchMap(mapId: string, then: Omit<PendingStart, 'map'> = {}) {
+    this.save.save();
+    setPendingStart({ map: mapId, ...then });
+    location.reload();
+  }
+
+  /** For freeride `arg` is the map to ride; every other mode runs on the home map. */
   startMode(id: string, arg?: string) {
+    const mapId = id === 'freeride' ? arg ?? this.map.id : HOME_MAP.id;
+    if (mapId !== this.map.id) { this.switchMap(mapId, { mode: id, arg }); return; }
     this.mode?.exit();
     this.mode = null;
     this.replay.stop();
@@ -540,6 +560,12 @@ export class Game {
   start() {
     this.last = performance.now();
     this.title.ready();
+    // arriving from a map switch: straight past the title into what was asked for
+    if (this.pending) {
+      this.title.dismiss();
+      if (this.pending.mode) this.startMode(this.pending.mode, this.pending.arg);
+      this.pending = null;
+    }
     const frame = (now: number) => {
       requestAnimationFrame(frame);
       const dt = Math.min(0.1, (now - this.last) / 1000);

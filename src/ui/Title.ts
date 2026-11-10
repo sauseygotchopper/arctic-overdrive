@@ -28,9 +28,15 @@ export class Title {
 
   hide() {
     if (!this.shown) return;
-    this.shown = false;
     // first launch goes straight into the tutorial
     if (!this.game.save.data.tutorialDone) this.game.startMode('tutorial');
+    this.dismiss();
+  }
+
+  /** Take the cover away without the first-launch tutorial (arriving from a map switch). */
+  dismiss() {
+    if (!this.shown) return;
+    this.shown = false;
     this.root.classList.add('done');
     setTimeout(() => this.root.remove(), 700);
   }

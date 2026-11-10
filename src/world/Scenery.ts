@@ -108,6 +108,7 @@ export class Scenery {
   /** Off-trail course corridors are kept free of trees and rocks. */
   private inClearing(x: number, z: number, pad: number): boolean {
     if ((this.data.def.venues ?? []).some((v) => this.data.venueDistance(v, x, z) < v.margin * 0.6 + pad)) return true;
+    if (this.data.riverDistanceAt(x, z) < pad) return true;
     for (const c of this.clearings) {
       const vx = c.bx - c.ax, vz = c.bz - c.az;
       const len2 = vx * vx + vz * vz || 1;
@@ -199,7 +200,7 @@ export class Scenery {
         const pz = z + (rand() - 0.5) * step;
         const forest = nz.fbm(px / 160 + 40, pz / 160, 3) + 0.15;
         const density = smoothstep(0.0, 0.35, forest);
-        if (rand() > density * 0.9 + 0.015) continue;
+        if (rand() > (density * 0.9 + 0.015) * d.forestBias(px, pz)) continue;
         if (d.trailDistanceAt(px, pz) < 3.5) continue;
         if (this.inClearing(px, pz, 3)) continue;
         if (d.lakeDistance(px, pz).d < 1.12) continue;
@@ -207,7 +208,7 @@ export class Scenery {
         if (Math.hypot(px - spawn.x, pz - spawn.z) < 25) continue;
         if (this.keepClear(px, pz)) continue;
         const h = d.heightAt(px, pz);
-        if (d.slopeAt(px, pz) > 0.9 || h > 125) continue;
+        if (d.slopeAt(px, pz) > 0.9 || h > d.treeline) continue;
         const sc = 0.75 + rand() * 0.65;
         const sy = sc * (0.85 + rand() * 0.4);
         q.setFromAxisAngle(up, rand() * Math.PI * 2);
