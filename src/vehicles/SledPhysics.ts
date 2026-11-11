@@ -42,6 +42,12 @@ interface Contact {
 }
 
 const BASE_HEIGHT = 0.25; // ray length left when fully compressed
+/**
+ * Suspension rays start this far above their attach point. Hitting a steep ramp fast, the nose can sink below
+ * the snow before the springs lift it; a ray starting under the surface finds nothing, the skis go limp and the
+ * chassis rams the ramp face. Starting higher keeps the contact (bottomed out on its bump stop) until it's clear.
+ */
+const RAY_LIFT = 0.6;
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _n = new THREE.Vector3();
@@ -279,16 +285,16 @@ export class SledPhysics {
     let wasAir = this.groundedCount === 0;
     for (const c of this.contacts) {
       const origin = _v.copy(c.local).applyQuaternion(this.quaternion).add(this.position);
-      this.ray.origin = origin;
+      this.ray.origin = { x: origin.x + this.up.x * RAY_LIFT, y: origin.y + this.up.y * RAY_LIFT, z: origin.z + this.up.z * RAY_LIFT };
       this.ray.dir = { x: -this.up.x, y: -this.up.y, z: -this.up.z };
-      const hit = world.castRayAndGetNormal(this.ray, c.maxLen, true, undefined, undefined, undefined, body);
+      const hit = world.castRayAndGetNormal(this.ray, c.maxLen + RAY_LIFT, true, undefined, undefined, undefined, body);
       c.prevCompression = c.compression;
       const prevLoad = c.load; // last step's spring load: what the snow is carrying right now
       c.loadAvg += (prevLoad - c.loadAvg) * Math.min(1, dt / 0.15);
       c.grounded = false;
       c.load = 0;
       if (!hit) { c.compression = 0; continue; }
-      const toi = hit.timeOfImpact;
+      const toi = Math.max(0, hit.timeOfImpact - RAY_LIFT); // attach point under the surface = fully compressed
       c.hitPoint.copy(origin).addScaledVector(this.up, -toi);
       const sid = this.terrain.surfaceAt(c.hitPoint.x, c.hitPoint.z);
       const top = SURFACES[sid];

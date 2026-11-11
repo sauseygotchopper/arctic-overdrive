@@ -36,7 +36,7 @@ export class PhysicsWorld {
     const n = t.hCells + 1;
     const h = new Float32Array(n * n);
     for (let iz = 0; iz < n; iz++) for (let ix = 0; ix < n; ix++) h[iz + ix * n] = t.heights[iz * n + ix];
-    const desc = RAPIER.ColliderDesc.heightfield(t.hCells, t.hCells, h, { x: t.size, y: 1, z: t.size })
+    const desc = RAPIER.ColliderDesc.heightfield(t.hCells, t.hCells, h, { x: t.size, y: 1, z: t.size }, RAPIER.HeightFieldFlags.FIX_INTERNAL_EDGES)
       .setFriction(0.3)
       .setRestitution(0);
     this.terrainCollider = this.world.createCollider(desc);
@@ -86,7 +86,9 @@ export class PhysicsWorld {
   }
 
   addTrimesh(vertices: Float32Array, indices: Uint32Array) {
-    this.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices).setFriction(0.3));
+    // Internal-edge fix: without it the chassis catches the seams between a ramp's triangles and gets a
+    // contact normal pointing back down the ramp, which stops a fast sled dead on the lip.
+    this.world.createCollider(RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES_TWO_SIDED).setFriction(0.3));
   }
 
   step() {
