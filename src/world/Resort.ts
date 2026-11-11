@@ -10,6 +10,8 @@ const POOL_RADIUS = 10;
 
 /** Valley station → summit. Exposed so Scenery can keep trees out from under the cable. */
 export function gondolaLine(t: TerrainData): [THREE.Vector2, THREE.Vector2] {
+  const g = t.def.gondola;
+  if (g) return [clearGround(t, new THREE.Vector2(g.base[0], g.base[1])), clearGround(t, new THREE.Vector2(g.top[0], g.top[1]))];
   let best = new THREE.Vector2(), bh = -Infinity;
   for (let x = -480; x <= 480; x += 12) for (let z = -480; z <= 480; z += 12) {
     const h = t.heightAt(x, z);

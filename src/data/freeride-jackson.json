@@ -1,0 +1,209 @@
+{
+ "_doc": "Jackson Hole freeride points of interest (same shape as freeride.json). Ids are prefixed so they never clash with another map's.",
+ "collectibles": [
+  {
+   "id": "jh-crystal-01",
+   "x": 50,
+   "z": -40
+  },
+  {
+   "id": "jh-crystal-02",
+   "x": 170,
+   "z": 150
+  },
+  {
+   "id": "jh-crystal-03",
+   "x": 100,
+   "z": 330
+  },
+  {
+   "id": "jh-crystal-04",
+   "x": 175,
+   "z": -150
+  },
+  {
+   "id": "jh-crystal-05",
+   "x": -165,
+   "z": 290
+  },
+  {
+   "id": "jh-crystal-06",
+   "x": -225,
+   "z": 110
+  },
+  {
+   "id": "jh-crystal-07",
+   "x": -215,
+   "z": -150
+  },
+  {
+   "id": "jh-crystal-08",
+   "x": -205,
+   "z": -420
+  },
+  {
+   "id": "jh-crystal-09",
+   "x": 372,
+   "z": 166
+  },
+  {
+   "id": "jh-crystal-10",
+   "x": 300,
+   "z": 138
+  },
+  {
+   "id": "jh-crystal-11",
+   "x": 366,
+   "z": -138
+  },
+  {
+   "id": "jh-crystal-12",
+   "x": -50,
+   "z": 205
+  },
+  {
+   "id": "jh-crystal-13",
+   "x": -335,
+   "z": -165
+  },
+  {
+   "id": "jh-crystal-14",
+   "x": -300,
+   "z": 110
+  },
+  {
+   "id": "jh-crystal-15",
+   "x": -360,
+   "z": -20
+  },
+  {
+   "id": "jh-crystal-16",
+   "x": 445,
+   "z": -368
+  },
+  {
+   "id": "jh-crystal-17",
+   "x": 330,
+   "z": -345
+  },
+  {
+   "id": "jh-crystal-18",
+   "x": 260,
+   "z": -330
+  },
+  {
+   "id": "jh-crystal-19",
+   "x": 0,
+   "z": -150
+  },
+  {
+   "id": "jh-crystal-20",
+   "x": -30,
+   "z": -340
+  },
+  {
+   "id": "jh-crystal-21",
+   "x": 190,
+   "z": 300
+  },
+  {
+   "id": "jh-crystal-22",
+   "x": -20,
+   "z": 90
+  },
+  {
+   "id": "jh-crystal-23",
+   "x": 210,
+   "z": 40
+  },
+  {
+   "id": "jh-crystal-24",
+   "x": -330,
+   "z": 250
+  },
+  {
+   "id": "jh-crystal-25",
+   "x": 200,
+   "z": -240
+  }
+ ],
+ "viewpoints": [
+  {
+   "id": "jh-snake-river-overlook",
+   "name": "Snake River Overlook",
+   "x": -270,
+   "z": 150,
+   "r": 16
+  },
+  {
+   "id": "jh-oxbow-bend",
+   "name": "Oxbow Bend",
+   "x": -128,
+   "z": 300,
+   "r": 16
+  },
+  {
+   "id": "jh-inspiration-point",
+   "name": "Inspiration Point",
+   "x": 230,
+   "z": 152,
+   "r": 16
+  },
+  {
+   "id": "jh-signal-mountain",
+   "name": "Signal Mountain Summit",
+   "x": -50,
+   "z": 192,
+   "r": 16
+  },
+  {
+   "id": "jh-mormon-row",
+   "name": "Mormon Row",
+   "x": -322,
+   "z": 58,
+   "r": 16
+  },
+  {
+   "id": "jh-rendezvous",
+   "name": "Rendezvous Mountain",
+   "x": 440,
+   "z": -345,
+   "r": 18
+  },
+  {
+   "id": "jh-cascade-headwall",
+   "name": "Cascade Canyon Headwall",
+   "x": 375,
+   "z": 152,
+   "r": 16
+  },
+  {
+   "id": "jh-blacktail-butte",
+   "name": "Blacktail Butte",
+   "x": -335,
+   "z": -142,
+   "r": 16
+  },
+  {
+   "id": "jh-schwabacher",
+   "name": "Schwabacher Landing",
+   "x": -185,
+   "z": -110,
+   "r": 16
+  }
+ ],
+ "trickSpots": [
+  {
+   "jump": 3,
+   "name": "Antelope Flats Table"
+  },
+  {
+   "jump": 5,
+   "name": "Sagebrush Table"
+  },
+  {
+   "jump": 6,
+   "name": "Cascade Canyon Kicker"
+  }
+ ]
+}

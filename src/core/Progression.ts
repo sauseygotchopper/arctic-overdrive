@@ -1,7 +1,7 @@
 import { SaveData, newSledSave } from './SaveSystem';
 import { SLEDS, PARTS, SledSpec, SledSetup, getSled, getPart, partFits, partMisfit, COSMETICS, RIDER_MASS, Livery, Tuning, DEFAULT_TUNING } from '../vehicles/SledSpec';
 import trailerData from '../data/trailers.json';
-import freerideData from '../data/freeride.json';
+import { MAPS } from '../world/Maps';
 import skillsData from '../data/skills.json';
 
 export const SKILLS = skillsData.skills;
@@ -121,7 +121,7 @@ export class Progression {
     if (u.deliveries) out.push({ label: 'Deliveries completed', have: c.deliveries, need: u.deliveries });
     if (u.podiums) out.push({ label: 'Snocross podiums', have: c.podiums, need: u.podiums });
     if (u.wins) out.push({ label: 'Snocross wins', have: c.wins, need: u.wins });
-    if (u.crystals) out.push({ label: `Frost crystals (of ${freerideData.collectibles.length})`, have: c.crystals, need: u.crystals });
+    if (u.crystals) out.push({ label: `Frost crystals (of ${MAPS.reduce((n, m) => n + m.freeride.collectibles.length, 0)})`, have: c.crystals, need: u.crystals });
     return out;
   }
 

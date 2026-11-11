@@ -1,6 +1,6 @@
 import type { Game } from '../core/Game';
 import modesData from '../data/modes.json';
-import freerideData from '../data/freeride.json';
+import { MAPS, HOME_MAP } from '../world/Maps';
 import { COURSES, fmtTime } from '../modes/TimeTrial';
 import { riderLevel, SKILLS } from '../core/Progression';
 import { DELIVERY_JOBS, jobPoint } from '../modes/Delivery';
@@ -36,7 +36,7 @@ const medalIcon = (m: string | null | undefined) => (m ? `<span class="medal ${m
 export class Menu {
   readonly el: HTMLDivElement;
   readonly pauseEl: HTMLDivElement;
-  private view: 'modes' | 'courses' | 'delivery' | 'snocross' | 'special' | 'skills' = 'modes';
+  private view: 'modes' | 'courses' | 'delivery' | 'snocross' | 'special' | 'skills' | 'maps' = 'modes';
   private pauseArgs: [string, boolean] = ['', false];
 
   constructor(private game: Game) {
@@ -94,7 +94,7 @@ export class Menu {
     const head = `
       <div class="menu-side">
         <div class="logo">ARCTIC <em>OVERDRIVE</em></div>
-        <div class="tag">Frostpine Valley · T${g.player.setup.spec.tier} ${g.player.setup.spec.brand} ${g.player.setup.spec.model}</div>
+        <div class="tag">${g.map.name} · T${g.player.setup.spec.tier} ${g.player.setup.spec.brand} ${g.player.setup.spec.model}</div>
         <div class="wallet"><b>$${fmt(sd.currency)}</b><span>Lv ${lvl.level} · ${fmt(sd.xp)} XP</span></div>
         <div class="lvl"><span style="width:${(lvl.into / lvl.span) * 100}%"></span></div>
         <div class="side-btns">
@@ -109,7 +109,7 @@ export class Menu {
     if (this.view === 'modes') {
       const cards = modesData.modes.map((m) => {
         let best = '';
-        if (m.id === 'freeride') best = `${sd.freeride.crystals.length}/${freerideData.collectibles.length} crystals · ${sd.freeride.viewpoints.length}/${freerideData.viewpoints.length} viewpoints`;
+        if (m.id === 'freeride') best = `${MAPS.length} maps · ${sd.freeride.crystals.length}/${MAPS.reduce((n, x) => n + x.freeride.collectibles.length, 0)} crystals · ${sd.freeride.viewpoints.length}/${MAPS.reduce((n, x) => n + x.freeride.viewpoints.length, 0)} viewpoints`;
         if (m.id === 'delivery') best = `${sd.delivery.completed} deliveries completed`;
         if (m.id === 'special') best = `${sd.special.completed} delivered · ${sd.special.busts} busted`;
         if (m.id === 'snocross') {
@@ -143,10 +143,14 @@ export class Menu {
       this.bindSide();
       this.el.querySelectorAll<HTMLButtonElement>('.card[data-mode]').forEach((b) => b.addEventListener('click', () => {
         const id = b.dataset.mode!;
-        if (id === 'timeTrial') { this.view = 'courses'; this.render(); }
-        else if (id === 'delivery' || id === 'snocross' || id === 'special') { this.view = id; this.render(); }
-        else g.startMode(id);
+        const view = id === 'timeTrial' ? 'courses' : id === 'freeride' ? 'maps' : id === 'delivery' || id === 'snocross' || id === 'special' ? id : null;
+        if (!view) g.startMode(id);
+        // races and deliveries live on the home map: load it first, then open their list
+        else if (view !== 'maps' && g.map !== HOME_MAP) g.switchMap(HOME_MAP.id, { view });
+        else { this.view = view; this.render(); }
       }));
+    } else if (this.view === 'maps') {
+      this.renderMaps(head, goalHtml);
     } else if (this.view === 'delivery') {
       this.renderJobs(head, goalHtml);
     } else if (this.view === 'snocross') {
@@ -177,6 +181,29 @@ export class Menu {
       this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
       this.el.querySelectorAll<HTMLButtonElement>('.course').forEach((b) => b.addEventListener('click', () => g.startMode('timeTrial', b.dataset.course)));
     }
+  }
+
+  /** Freeride: pick which world to ride. Choosing one that isn't loaded reloads into it. */
+  private renderMaps(head: string, goalHtml: string) {
+    const g = this.game;
+    const sd = g.save.data;
+    const rows = MAPS.map((m) => {
+      const f = m.freeride;
+      const crystals = f.collectibles.filter((c) => sd.freeride.crystals.includes(c.id)).length;
+      const views = f.viewpoints.filter((v) => sd.freeride.viewpoints.includes(v.id)).length;
+      const here = m === g.map;
+      return `
+        <button class="course" data-map="${m.id}">
+          <div class="course-head"><div class="course-name">${m.name}</div><span class="map-region">${m.region}</span></div>
+          <div class="course-desc">${m.description}</div>
+          <div class="chips">${m.features.map((s) => `<span>${s}</span>`).join('')}</div>
+          <div class="course-times"><span>${crystals}/${f.collectibles.length} crystals</span><span>${views}/${f.viewpoints.length} viewpoints</span><span class="pb">${here ? 'Loaded · ride now' : 'Loads the map (a few seconds)'}</span></div>
+        </button>`;
+    }).join('');
+    this.el.innerHTML = `${head}<div class="menu-main">${goalHtml}<div class="menu-title"><button class="back">‹ Back</button>Freeride · choose a map</div><div class="courses">${rows}</div></div>`;
+    this.bindSide();
+    this.el.querySelector('.back')!.addEventListener('click', () => { this.view = 'modes'; this.render(); });
+    this.el.querySelectorAll<HTMLButtonElement>('[data-map]').forEach((b) => b.addEventListener('click', () => g.startMode('freeride', b.dataset.map)));
   }
 
   private renderJobs(head: string, goalHtml: string) {

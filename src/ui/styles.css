@@ -567,3 +567,6 @@ button { font: inherit; color: inherit; }
 .r-row.total b { font-weight: inherit; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .menu-main, .cards > *, .courses > *, .skills > *, .hud-results.show .r-card, .tutorial { animation: none !important; } }
 @media (max-width: 1100px) { .tutorial { top: 150px; } }
+
+/* freeride map picker */
+.map-region { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .65; }

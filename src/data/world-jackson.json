@@ -1,0 +1,524 @@
+{
+ "_doc": "Jackson Hole, Wyoming (freeride map). +X is west, +Z is north. The Teton Range (Landforms.ts 'tetons') walls the west side; the valley floor is open flats. Rivers are frozen ice channels. Trail ids 'loop' and 'cross' get lamp posts; the gondola is the tram up Rendezvous Mountain.",
+ "size": 1024,
+ "seed": 4131,
+ "landform": "tetons",
+ "spawn": {
+  "x": 50,
+  "z": 10,
+  "headingTo": [
+   130,
+   20
+  ]
+ },
+ "gondola": {
+  "base": [
+   140,
+   -350
+  ],
+  "top": [
+   425,
+   -368
+  ]
+ },
+ "trails": [
+  {
+   "id": "loop",
+   "width": 9,
+   "points": [
+    [
+     110,
+     -60
+    ],
+    [
+     130,
+     20
+    ],
+    [
+     105,
+     95
+    ],
+    [
+     95,
+     170
+    ],
+    [
+     60,
+     235
+    ],
+    [
+     -30,
+     285
+    ],
+    [
+     -115,
+     265
+    ],
+    [
+     -135,
+     170
+    ],
+    [
+     -140,
+     80
+    ],
+    [
+     -130,
+     -10
+    ],
+    [
+     -150,
+     -110
+    ],
+    [
+     -120,
+     -210
+    ],
+    [
+     -50,
+     -290
+    ],
+    [
+     40,
+     -315
+    ],
+    [
+     115,
+     -290
+    ],
+    [
+     140,
+     -220
+    ],
+    [
+     120,
+     -140
+    ],
+    [
+     110,
+     -60
+    ]
+   ]
+  },
+  {
+   "id": "cross",
+   "width": 7,
+   "points": [
+    [
+     130,
+     20
+    ],
+    [
+     50,
+     10
+    ],
+    [
+     -40,
+     30
+    ],
+    [
+     -140,
+     80
+    ]
+   ]
+  },
+  {
+   "id": "mormon",
+   "width": 7,
+   "points": [
+    [
+     -140,
+     80
+    ],
+    [
+     -215,
+     70
+    ],
+    [
+     -290,
+     50
+    ],
+    [
+     -322,
+     -20
+    ],
+    [
+     -347,
+     -75
+    ],
+    [
+     -335,
+     -142
+    ]
+   ]
+  },
+  {
+   "id": "cascade",
+   "width": 7,
+   "points": [
+    [
+     95,
+     170
+    ],
+    [
+     125,
+     222
+    ],
+    [
+     185,
+     224
+    ],
+    [
+     232,
+     192
+    ],
+    [
+     285,
+     160
+    ],
+    [
+     340,
+     150
+    ],
+    [
+     375,
+     152
+    ]
+   ]
+  },
+  {
+   "id": "death",
+   "width": 6,
+   "points": [
+    [
+     120,
+     -140
+    ],
+    [
+     150,
+     -95
+    ],
+    [
+     205,
+     -100
+    ],
+    [
+     245,
+     -135
+    ],
+    [
+     300,
+     -150
+    ],
+    [
+     368,
+     -148
+    ]
+   ]
+  },
+  {
+   "id": "signal",
+   "width": 6,
+   "points": [
+    [
+     -135,
+     170
+    ],
+    [
+     -112,
+     128
+    ],
+    [
+     -50,
+     112
+    ],
+    [
+     5,
+     150
+    ],
+    [
+     12,
+     200
+    ],
+    [
+     -20,
+     238
+    ],
+    [
+     -58,
+     222
+    ],
+    [
+     -50,
+     192
+    ]
+   ]
+  },
+  {
+   "id": "tram",
+   "width": 7,
+   "points": [
+    [
+     115,
+     -290
+    ],
+    [
+     180,
+     -305
+    ],
+    [
+     235,
+     -295
+    ],
+    [
+     285,
+     -380
+    ],
+    [
+     315,
+     -300
+    ],
+    [
+     355,
+     -385
+    ],
+    [
+     390,
+     -305
+    ],
+    [
+     440,
+     -345
+    ]
+   ]
+  }
+ ],
+ "rivers": [
+  {
+   "id": "snake",
+   "width": 26,
+   "points": [
+    [
+     12,
+     338
+    ],
+    [
+     -60,
+     352
+    ],
+    [
+     -125,
+     335
+    ],
+    [
+     -165,
+     290
+    ],
+    [
+     -205,
+     245
+    ],
+    [
+     -185,
+     185
+    ],
+    [
+     -225,
+     110
+    ],
+    [
+     -200,
+     30
+    ],
+    [
+     -245,
+     -60
+    ],
+    [
+     -215,
+     -150
+    ],
+    [
+     -250,
+     -230
+    ],
+    [
+     -200,
+     -300
+    ],
+    [
+     -225,
+     -370
+    ],
+    [
+     -205,
+     -425
+    ]
+   ]
+  }
+ ],
+ "lakes": [
+  {
+   "x": 170,
+   "z": 150,
+   "r": 50
+  },
+  {
+   "x": 100,
+   "z": 330,
+   "r": 80
+  },
+  {
+   "x": 175,
+   "z": -150,
+   "r": 38
+  }
+ ],
+ "zones": [
+  {
+   "surface": "moguls",
+   "shape": "circle",
+   "x": 330,
+   "z": -340,
+   "r": 30
+  },
+  {
+   "surface": "slush",
+   "shape": "circle",
+   "x": -165,
+   "z": 290,
+   "r": 22
+  },
+  {
+   "surface": "crust",
+   "shape": "circle",
+   "x": 0,
+   "z": -150,
+   "r": 70
+  },
+  {
+   "surface": "powder",
+   "shape": "circle",
+   "x": 330,
+   "z": 152,
+   "r": 42
+  },
+  {
+   "surface": "powder",
+   "shape": "circle",
+   "x": 300,
+   "z": -150,
+   "r": 36
+  }
+ ],
+ "cabins": [
+  {
+   "id": "moulton-barn",
+   "x": -300,
+   "z": 88,
+   "rot": 0.3
+  },
+  {
+   "id": "mormon-row",
+   "x": -352,
+   "z": 22,
+   "rot": 1.7
+  },
+  {
+   "id": "jenny-lake-lodge",
+   "x": 162,
+   "z": 55,
+   "rot": -0.6
+  },
+  {
+   "id": "signal-lodge",
+   "x": 48,
+   "z": 203,
+   "rot": 2.4
+  },
+  {
+   "id": "teton-village",
+   "x": 175,
+   "z": -338,
+   "rot": 0.2
+  },
+  {
+   "id": "corbets-cabin",
+   "x": 458,
+   "z": -318,
+   "rot": -1.3
+  },
+  {
+   "id": "dornans",
+   "x": -40,
+   "z": -235,
+   "rot": 1.1
+  }
+ ],
+ "jumps": [
+  {
+   "trail": "loop",
+   "at": 0.04,
+   "type": "tabletop",
+   "height": 1.6,
+   "width": 7
+  },
+  {
+   "trail": "loop",
+   "at": 0.2,
+   "type": "kicker",
+   "height": 1.0,
+   "width": 6
+  },
+  {
+   "trail": "loop",
+   "at": 0.38,
+   "type": "rollers",
+   "height": 0.7,
+   "width": 8
+  },
+  {
+   "trail": "loop",
+   "at": 0.55,
+   "type": "tabletop",
+   "height": 2.4,
+   "width": 8
+  },
+  {
+   "trail": "loop",
+   "at": 0.72,
+   "type": "kicker",
+   "height": 1.6,
+   "width": 6
+  },
+  {
+   "trail": "cross",
+   "at": 0.6,
+   "type": "tabletop",
+   "height": 1.8,
+   "width": 6
+  },
+  {
+   "trail": "cascade",
+   "at": 0.78,
+   "type": "kicker",
+   "height": 2.6,
+   "width": 5
+  },
+  {
+   "trail": "mormon",
+   "at": 0.3,
+   "type": "rollers",
+   "height": 0.6,
+   "width": 6
+  },
+  {
+   "trail": "death",
+   "at": 0.8,
+   "type": "tabletop",
+   "height": 2.0,
+   "width": 5
+  }
+ ],
+ "venues": []
+}

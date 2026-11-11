@@ -19,7 +19,7 @@
   },
   "tutorial": { "currency": 500, "xp": 250 },
   "modes": [
-    { "id": "freeride",  "name": "Freeride",  "tagline": "Open valley. No clock.", "description": "Explore Frostpine Valley, hunt frost crystals, find scenic viewpoints and throw down at trick spots. Change the time of day and weather, then snap it in photo mode.", "available": true },
+    { "id": "freeride",  "name": "Freeride",  "tagline": "Open country. No clock.", "description": "Explore Frostpine Valley or Jackson Hole under the Tetons: hunt frost crystals, find scenic viewpoints and throw down at trick spots. Change the time of day and weather, then snap it in photo mode.", "available": true },
     { "id": "timeTrial", "name": "Time Trial", "tagline": "Beat the clock. Beat your ghost.", "description": "Checkpoint courses across mixed snow. Race your best-run ghost for bronze, silver and gold.", "available": true },
     { "id": "delivery",  "name": "Delivery",  "tagline": "Haul it. Don't break it.", "description": "Pick up cargo and deliver it to remote cabins against the clock.", "available": true },
     { "id": "snocross",  "name": "Snocross",  "tagline": "Six sleds. One holeshot.", "description": "Race five AI riders around Frostpine Arena: berms, tabletops, a double, whoops and a rhythm section. Faster sleds, faster rivals.", "available": true },

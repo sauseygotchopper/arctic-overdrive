@@ -1,5 +1,6 @@
 import { Noise2D, clamp, lerp, smoothstep } from './Noise';
 import { SURFACE_ID, SurfaceKey } from '../physics/Surfaces';
+import { LANDFORMS, Landform } from './Landforms';
 
 export interface TrailDef { id: string; width: number; points: number[][] }
 export interface LakeDef { x: number; z: number; r: number }
@@ -9,6 +10,12 @@ export interface VenueDef { id: string; x: number; z: number; rot: number; halfL
 export interface WorldDef {
   size: number;
   seed: number;
+  /** Large-scale shape from Landforms.ts (omit for the built-in rolling valley). */
+  landform?: string;
+  /** Frozen rivers: ice channels cut a little below the surrounding ground. */
+  rivers?: TrailDef[];
+  /** Lift line (base → summit); omit to run it from the south trailhead to the highest point. */
+  gondola?: { base: number[]; top: number[] };
   spawn: { x: number; z: number; headingTo: number[] };
   trails: TrailDef[];
   lakes: LakeDef[];
@@ -21,6 +28,8 @@ export interface WorldDef {
 export interface TrailPath { id: string; width: number; pts: { x: number; z: number }[] }
 
 const BIG = 1e6;
+/** How far a frozen river sits below its banks (m). */
+const RIVER_DEPTH = 2.2;
 
 /**
  * Pure data for the world: height grid (2 m, matches the physics heightfield) and
@@ -37,6 +46,9 @@ export class TerrainData {
   readonly sCells: number;
   readonly surface: Uint8Array;
   readonly trailDist: Float32Array;
+  /** Distance to the nearest river bank (negative on the ice); null on maps without rivers. */
+  private riverDist: Float32Array | null = null;
+  private landform: Landform | null;
   /** Distance to the nearest trail OR course corridor – drives the level bench in the heightfield. */
   private benchDist: Float32Array;
   /** Height of the nearest trail centreline (trails are cut level across the hillside). */
@@ -59,6 +71,8 @@ export class TerrainData {
     this.hStep = this.size / this.hCells;
     this.sCells = this.size;
     this.noise = new Noise2D(def.seed);
+    this.landform = def.landform ? LANDFORMS[def.landform] ?? null : null;
+    if (def.rivers?.length) this.riverDist = new Float32Array(this.sCells * this.sCells).fill(BIG);
     const n = this.hCells + 1;
     this.heights = new Float32Array(n * n);
     this.surface = new Uint8Array(this.sCells * this.sCells);
@@ -94,14 +108,19 @@ export class TerrainData {
       }
       return best;
     };
-    const all = [...this.def.trails.map((t) => ({ ...t, groomed: true })), ...this.corridors.map((c, i) => ({ id: `corridor-${i}`, ...c, groomed: false }))];
+    const all = [
+      // rivers first, so trails that reach a bank meet the ice level
+      ...(this.def.rivers ?? []).map((r) => ({ ...r, groomed: false, river: true })),
+      ...this.def.trails.map((t) => ({ ...t, groomed: true, river: false })),
+      ...this.corridors.map((c, i) => ({ id: `corridor-${i}`, ...c, groomed: false, river: false })),
+    ];
     for (const t of all) {
-      const pts = t.groomed ? catmullRom(t.points, 2) : straight(t.points, 2);
+      const pts = t.groomed || t.river ? catmullRom(t.points, 2) : straight(t.points, 2);
       if (t.groomed) this.trailPaths.push({ id: t.id, width: t.width, pts });
       const closed = t.points.length > 2 && t.points[0][0] === t.points[t.points.length - 1][0] && t.points[0][1] === t.points[t.points.length - 1][1];
       // centreline heights, smoothed along the path (wrapping on loops) so the trail rolls gently
       // follow the lake-shaped landform so trails run down into lake bowls instead of being tilted by them
-      const raw = pts.map((p) => this.lakeShape(this.lowHeight(p.x, p.z), p.x, p.z));
+      const raw = pts.map((p) => this.lakeShape(this.lowHeight(p.x, p.z), p.x, p.z) - (t.river ? RIVER_DEPTH : 0));
       const W = 16;
       const n = raw.length;
       const ch = raw.map((_, i) => {
@@ -163,6 +182,7 @@ export class TerrainData {
             sumW[idx] += w;
             this.trailH[idx] += w * tH[idx];
             if (t.groomed && d < this.trailDist[idx]) this.trailDist[idx] = d;
+            if (t.river && d < this.riverDist![idx]) this.riverDist![idx] = d;
             if (d < this.benchDist[idx]) this.benchDist[idx] = d;
           }
           tDist[idx] = BIG;
@@ -176,6 +196,7 @@ export class TerrainData {
   /** Large-scale landform without detail – trails follow this so they stay smooth. */
   private lowHeight(x: number, z: number): number {
     const n = this.noise;
+    if (this.landform) return this.landform.low(n, x, z);
     let h = n.fbm(x / 420, z / 420, 3) * 34 + n.fbm(x / 170 + 10, z / 170 - 4, 2) * 11;
     const ridgeMask = smoothstep(-0.1, 0.5, n.noise(x / 600 + 3, z / 600));
     h += n.ridged(x / 300 + 5, z / 300 - 3, 3) * 26 * ridgeMask;
@@ -288,11 +309,17 @@ export class TerrainData {
         const slope = this.slopeAt(x, z);
 
         let s: number = SURFACE_ID.powder;
-        const windy = n.noise(x / 140 - 9, z / 140 + 2) > 0.42 || (h > 70 && n.noise(x / 90, z / 90) > -0.25);
+        const windy = n.noise(x / 140 - 9, z / 140 + 2) > 0.42 || (h > this.treeline * 0.56 && n.noise(x / 90, z / 90) > -0.25);
         if (windy || slope > 0.85) s = SURFACE_ID.crust;
 
         for (const zn of early) if (Math.hypot(x - zn.x, z - zn.z) < zn.r) s = SURFACE_ID[zn.surface];
         if (this.trailDist[idx] < 0) s = SURFACE_ID.groomed;
+        if (this.riverDist) {
+          // river ice wins over a trail crossing it; a slushy margin along the banks
+          const rd = this.riverDist[idx];
+          if (rd < 0) s = n.fbm(x / 16, z / 16, 2) > 0.55 ? SURFACE_ID.crust : SURFACE_ID.ice;
+          else if (rd < 1.2 && this.trailDist[idx] >= 0) s = SURFACE_ID.slush;
+        }
         for (const zn of late) {
           const wob = 1 + 0.2 * n.noise(x / 12, z / 12);
           if (Math.hypot(x - zn.x, z - zn.z) < zn.r * wob) s = SURFACE_ID[zn.surface];
@@ -372,6 +399,32 @@ export class TerrainData {
 
   trailDistanceAt(x: number, z: number): number {
     return this.trailDistAt(x, z);
+  }
+
+  /** Distance to the nearest river bank (negative on the ice, huge on maps without rivers). */
+  riverDistanceAt(x: number, z: number): number {
+    if (!this.riverDist) return BIG;
+    const cx = clamp(Math.floor(x + this.half), 0, this.sCells - 1);
+    const cz = clamp(Math.floor(z + this.half), 0, this.sCells - 1);
+    return this.riverDist[cz * this.sCells + cx];
+  }
+
+  /** Trees stop above this height. */
+  get treeline(): number {
+    return this.landform?.treeline ?? 125;
+  }
+
+  /** Tree density multiplier from the landform (open flats, timbered slopes...). */
+  forestBias(x: number, z: number): number {
+    let b = this.landform?.forest?.(this.noise, x, z) ?? 1;
+    // cottonwoods line the river banks; moraine timber rings the lakes
+    if (this.riverDist && b < 1) {
+      const rd = this.riverDistanceAt(x, z);
+      if (rd < 34) b = Math.max(b, 0.7 * smoothstep(34, 14, rd));
+      const l = this.lakeDistance(x, z);
+      if (l.i >= 0 && l.d < 2.1) b = Math.max(b, smoothstep(2.1, 1.5, l.d));
+    }
+    return b;
   }
 }
 

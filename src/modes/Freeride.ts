@@ -3,7 +3,6 @@ import { disposeObject } from '../core/dispose';
 import type { Game } from '../core/Game';
 import { GameMode } from './GameMode';
 import { AngryRanga } from './AngryRanga';
-import freerideData from '../data/freeride.json';
 import modesData from '../data/modes.json';
 
 interface Crystal { id: string; mesh: THREE.Group; base: THREE.Vector3 }
@@ -29,18 +28,30 @@ export class Freeride implements GameMode {
     this.ranga = new AngryRanga(game);
   }
 
+  /** This map's crystals, viewpoints and trick spots. */
+  private get data() {
+    return this.game.map.freeride;
+  }
+
+  /** Found on this map (the save keeps one list for every map; ids are unique per map). */
+  private found(kind: 'crystals' | 'viewpoints') {
+    const ids = kind === 'crystals' ? this.data.collectibles : this.data.viewpoints;
+    return ids.filter((c) => this.progress[kind].includes(c.id)).length;
+  }
+
   private get progress() {
     return this.game.save.data.freeride;
   }
 
   enter() {
     const g = this.game;
+    const freerideData = this.data;
     const sp = g.terrain.def.spawn;
     g.player.teleport(new THREE.Vector3(sp.x, g.terrain.heightAt(sp.x, sp.z) + 0.8, sp.z), Math.atan2(sp.headingTo[0] - sp.x, sp.headingTo[1] - sp.z));
     const crystalGeo = new THREE.OctahedronGeometry(0.42, 0);
     const crystalMat = new THREE.MeshStandardMaterial({ color: 0x8fe9ff, emissive: 0x31c6ff, emissiveIntensity: 1.6, roughness: 0.15, metalness: 0.1 });
     const beamMat = new THREE.MeshBasicMaterial({ color: 0x7fdcff, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending });
-    for (const c of freerideData.collectibles as { id: string; x: number; z: number; y?: number }[]) {
+    for (const c of freerideData.collectibles) {
       if (this.progress.crystals.includes(c.id)) continue;
       const base = new THREE.Vector3(c.x, (c.y ?? g.terrain.heightAt(c.x, c.z)) + 1.3, c.z);
       const m = new THREE.Group();
@@ -57,7 +68,7 @@ export class Freeride implements GameMode {
     }
     const signMat = new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.9 });
     const flagMat = new THREE.MeshStandardMaterial({ color: 0xff5a1f, roughness: 0.6, side: THREE.DoubleSide });
-    for (const v of freerideData.viewpoints as { id: string; name: string; x: number; z: number; r: number }[]) {
+    for (const v of freerideData.viewpoints) {
       const pos = new THREE.Vector3(v.x, g.terrain.heightAt(v.x, v.z), v.z);
       this.viewpoints.push({ id: v.id, name: v.name, pos, r: v.r });
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 3.2, 6), signMat);
@@ -124,11 +135,11 @@ export class Freeride implements GameMode {
         g.hud.toast(`+$${R.viewpoint.currency} · +${R.viewpoint.xp} XP · press F for photo mode`, 3);
       }
     }
-    const total = freerideData.collectibles.length;
+    const total = this.data.collectibles.length;
     g.hud.setObjective({
-      title: 'Freeride',
-      main: `${this.progress.crystals.length}/${total} crystals`,
-      sub: `${this.progress.viewpoints.length}/${freerideData.viewpoints.length} viewpoints${this.inSpot ? ` · <span class="ahead">${this.inSpot.name} ×${R.trickSpotMultiplier}</span>` : ''}`,
+      title: g.map.name,
+      main: `${this.found('crystals')}/${total} crystals`,
+      sub: `${this.found('viewpoints')}/${this.data.viewpoints.length} viewpoints${this.inSpot ? ` · <span class="ahead">${this.inSpot.name} ×${R.trickSpotMultiplier}</span>` : ''}`,
     });
   }
 
@@ -140,8 +151,8 @@ export class Freeride implements GameMode {
     g.addRewards(R.collectible.currency, R.collectible.xp);
     g.effects.burst(c.mesh.position, 6);
     g.audioCue?.('pickup');
-    const total = freerideData.collectibles.length;
-    const n = this.progress.crystals.length;
+    const total = this.data.collectibles.length;
+    const n = this.found('crystals');
     if (n === total) {
       g.addRewards(R.allCollectibles.currency, R.allCollectibles.xp);
       g.hud.banner('All frost crystals found!', 'good', 3.5);
